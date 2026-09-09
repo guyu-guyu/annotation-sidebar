@@ -1,0 +1,42 @@
+src/settings.ts
+  s_258ec1f6cb4cf5::t_817a74db599826 9,16,68-77
+docs/DESIGN.md
+  s_258ec1f6cb4cf5::t_817a74db599826 1-62
+tests/repository.test.ts
+  s_258ec1f6cb4cf5::t_817a74db599826 1-138,147-152
+  s_258ec1f6cb4cf5::t_b16965b7a308d9 139-146
+src/repository.ts
+  s_258ec1f6cb4cf5::t_817a74db599826 110-117
+  s_258ec1f6cb4cf5::t_b16965b7a308d9 52-62
+README.md
+  s_258ec1f6cb4cf5::t_817a74db599826 1-94
+docs/DEVELOPMENT.md
+  s_258ec1f6cb4cf5::t_817a74db599826 1-48
+CHANGELOG.md
+  s_258ec1f6cb4cf5::t_817a74db599826 1-12
+src/annotation-view.ts
+  s_258ec1f6cb4cf5::t_b16965b7a308d9 145,220-225
+  s_258ec1f6cb4cf5::t_e295c772ff4e9e 226-227
+LICENSE
+  s_258ec1f6cb4cf5::t_817a74db599826 1-21
+docs/annotation-file.schema.json
+  s_258ec1f6cb4cf5::t_817a74db599826 1-55
+src/main.ts
+  s_258ec1f6cb4cf5::t_817a74db599826 92-98
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "b224bab2f4cde228d59944159ea900e43e5f34de",
+  "prompts": {},
+  "sessions": {
+    "s_258ec1f6cb4cf5": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a08598-dff0-7e13-9916-4c0a7d1f65a9",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "leijieliu <leijieliu@tencent.com>"
+    }
+  }
+}
