@@ -89,7 +89,13 @@ export default class AnnotationSidebarPlugin extends Plugin {
     }));
 
     this.registerEvent(this.app.vault.on("delete", (file) => {
-      if (file instanceof TFile && this.repository.isSidecarPath(file.path)) {
+      if (!(file instanceof TFile)) return;
+      if (file.extension.toLowerCase() === "md" && this.settings.autoTrashCompanion) {
+        void this.repository.trashCompanion(file.path)
+          .catch((error: unknown) => this.reportError("移动批注文件到废纸篓失败", error));
+        return;
+      }
+      if (this.repository.isSidecarPath(file.path)) {
         void this.refreshOpenView();
       }
     }));

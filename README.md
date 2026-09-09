@@ -1,0 +1,94 @@
+# Annotation Sidebar
+
+Annotation Sidebar 是一个 Obsidian 批注插件。每篇有批注的 Markdown 笔记都拥有一个同目录、同文件名、不同后缀的独立批注文件；批注在 Obsidian 原生右侧栏中查看和编辑。
+
+## 功能
+
+- 对编辑器中的选中文本添加批注。
+- 在没有选区时，对当前光标位置添加批注。
+- 在右侧栏直接编辑，停止输入后自动保存。
+- 点击批注行号或定位图标跳回正文。
+- 在编辑模式中高亮文本批注，并显示位置批注标记。
+- 正文前后插入内容后，利用原文和上下文重新定位锚点。
+- 笔记重命名时同步重命名批注文件。
+- 笔记删除时按 Obsidian 的废纸篓设置处理批注文件。
+- 支持桌面端和移动端，不使用 Node.js 或 Electron 专属 API。
+
+## 安装
+
+当前版本可手动安装：
+
+1. 在仓库根目录执行 `npm install` 和 `npm run build`。
+2. 在你的库中创建目录 `<Vault>/.obsidian/plugins/annotation-sidebar/`。
+3. 将 `main.js`、`manifest.json` 和 `styles.css` 放入该目录。
+4. 重启 Obsidian，进入“设置 → 第三方插件”，启用 “Annotation Sidebar”。
+
+仓库已经包含构建后的 `main.js`，因此也可以直接使用上述三个发布文件。
+
+## 使用
+
+1. 打开一篇 Markdown 笔记。
+2. 选中一段文本，或将光标放到需要批注的位置。
+3. 打开命令面板并执行“批注侧栏：在选区或光标处添加批注”。也可以在编辑器右键菜单中选择相同操作。
+4. 插件会打开右侧批注栏并聚焦新批注的输入框，输入内容后自动保存。
+5. 点击行号或定位图标返回正文；点击删除图标后确认即可删除。
+
+左侧功能区的消息图标和命令“批注侧栏：打开批注侧栏”都可以打开面板。侧栏标题栏的加号会在最近使用的 Markdown 编辑器选区或光标处添加批注。
+
+## 文件格式
+
+默认映射如下：
+
+```text
+Notes/Design.md
+Notes/Design.annotations.json
+```
+
+批注文件是版本化 JSON，适合 Obsidian Sync、Git 或其他同步工具：
+
+```json
+{
+  "version": 1,
+  "source": "Notes/Design.md",
+  "updatedAt": "2026-09-09T10:00:00.000Z",
+  "annotations": [
+    {
+      "id": "67a5c924-7817-46fe-bf6a-faa0ef03422a",
+      "content": "这里需要补充依据。",
+      "createdAt": "2026-09-09T10:00:00.000Z",
+      "updatedAt": "2026-09-09T10:01:00.000Z",
+      "anchor": {
+        "kind": "selection",
+        "from": { "line": 3, "ch": 0, "offset": 42 },
+        "to": { "line": 3, "ch": 8, "offset": 50 },
+        "quote": "待确认内容",
+        "prefix": "上一段末尾",
+        "suffix": "下一段开头"
+      }
+    }
+  ]
+}
+```
+
+完整结构见 [JSON Schema](docs/annotation-file.schema.json)。请不要在 Obsidian 和外部编辑器中同时修改同一个批注文件。
+
+## 设置
+
+- `批注文件后缀`：默认 `.annotations.json`。修改后只影响随后读取和创建的文件，不迁移旧文件。
+- `自动保存延迟`：150–2000 ms，默认 500 ms。
+- `笔记重命名时同步批注文件`：默认开启。
+- `删除笔记时移入批注文件`：默认开启，使用 Obsidian 的当前废纸篓策略。
+
+## 当前边界
+
+- 正文标记只显示在 Markdown 编辑模式；阅读模式仍可从侧栏查看和跳转。
+- 如果被批注原文和附近上下文均被彻底改写，插件会回退到原始偏移附近并给出提示。
+- 修改批注文件后缀不会自动迁移既有批注文件，以避免批量重命名造成冲突。
+- 首版不包含多人实时协作冲突合并；所有插件内更新均使用 Vault 的原子 `process` 操作。
+
+架构与取舍见 [设计说明](docs/DESIGN.md)，构建、测试和发布流程见 [开发说明](docs/DEVELOPMENT.md)。
+
+## License
+
+[MIT](LICENSE)
+

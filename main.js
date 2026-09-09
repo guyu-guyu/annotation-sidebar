@@ -415,6 +415,7 @@ var AnnotationView = class extends import_obsidian.ItemView {
     itemActions.appendChild(this.createIconButton("trash-2", "\u5220\u9664\u6279\u6CE8", () => {
       this.plugin.confirmDelete(annotation, async () => {
         try {
+          this.cancelPendingSave(annotation.id);
           await this.plugin.repository.remove(note, annotation.id);
           this.plugin.refreshEditorHighlights(note.path);
           await this.refresh();
@@ -481,6 +482,14 @@ var AnnotationView = class extends import_obsidian.ItemView {
     this.saveTimers.delete(id);
     this.pendingSaves.delete(id);
     void this.saveContent(note, id, value, status);
+  }
+  cancelPendingSave(id) {
+    var _a;
+    const timer = this.saveTimers.get(id);
+    if (timer !== void 0) window.clearTimeout(timer);
+    this.saveTimers.delete(id);
+    this.pendingSaves.delete(id);
+    this.saveVersions.set(id, ((_a = this.saveVersions.get(id)) != null ? _a : 0) + 1);
   }
   async saveContent(note, id, value, status) {
     var _a;
@@ -713,10 +722,15 @@ var AnnotationRepository = class {
   }
   async updateContent(note, id, content) {
     const now = (/* @__PURE__ */ new Date()).toISOString();
-    return this.mutate(note, (document2) => ({
-      ...document2,
-      annotations: document2.annotations.map((annotation) => annotation.id === id ? { ...annotation, content, updatedAt: now } : annotation)
-    }));
+    return this.mutate(note, (document2) => {
+      if (!document2.annotations.some((annotation) => annotation.id === id)) {
+        throw new Error(`\u6279\u6CE8\u4E0D\u5B58\u5728\u6216\u5DF2\u88AB\u5220\u9664\uFF1A${id}`);
+      }
+      return {
+        ...document2,
+        annotations: document2.annotations.map((annotation) => annotation.id === id ? { ...annotation, content, updatedAt: now } : annotation)
+      };
+    });
   }
   async remove(note, id) {
     const document2 = await this.mutate(note, (current) => ({
@@ -757,6 +771,13 @@ var AnnotationRepository = class {
       });
     }
   }
+  async trashCompanion(sourcePath) {
+    const path = (0, import_obsidian3.normalizePath)(annotationPathFor(sourcePath, this.getSuffix()));
+    const file = this.app.vault.getAbstractFileByPath(path);
+    if (file === null) return;
+    this.beforeWrite(path);
+    await this.app.fileManager.trashFile(file);
+  }
   async mutate(note, updater) {
     const path = this.pathForNote(note);
     const existing = this.app.vault.getAbstractFileByPath(path);
@@ -796,7 +817,8 @@ var import_obsidian4 = require("obsidian");
 var DEFAULT_SETTINGS = {
   annotationSuffix: DEFAULT_ANNOTATION_SUFFIX,
   autosaveDelay: 500,
-  autoRenameCompanion: true
+  autoRenameCompanion: true,
+  autoTrashCompanion: true
 };
 var AnnotationSidebarSettingTab = class extends import_obsidian4.PluginSettingTab {
   constructor(plugin) {
@@ -824,6 +846,10 @@ var AnnotationSidebarSettingTab = class extends import_obsidian4.PluginSettingTa
     }));
     new import_obsidian4.Setting(this.containerEl).setName("\u7B14\u8BB0\u91CD\u547D\u540D\u65F6\u540C\u6B65\u6279\u6CE8\u6587\u4EF6").setDesc("\u4FDD\u6301 Markdown \u7B14\u8BB0\u548C\u5BF9\u5E94\u6279\u6CE8\u6587\u4EF6\u7684\u540D\u79F0\u4E00\u81F4\u3002").addToggle((toggle) => toggle.setValue(this.plugin.settings.autoRenameCompanion).onChange(async (value) => {
       this.plugin.settings.autoRenameCompanion = value;
+      await this.plugin.saveSettings();
+    }));
+    new import_obsidian4.Setting(this.containerEl).setName("\u5220\u9664\u7B14\u8BB0\u65F6\u79FB\u5165\u6279\u6CE8\u6587\u4EF6").setDesc("\u5220\u9664 Markdown \u7B14\u8BB0\u65F6\uFF0C\u4F7F\u7528 Obsidian \u5F53\u524D\u7684\u5E9F\u7EB8\u7BD3\u7B56\u7565\u5904\u7406\u5BF9\u5E94\u6279\u6CE8\u6587\u4EF6\u3002").addToggle((toggle) => toggle.setValue(this.plugin.settings.autoTrashCompanion).onChange(async (value) => {
+      this.plugin.settings.autoTrashCompanion = value;
       await this.plugin.saveSettings();
     }));
   }
@@ -887,7 +913,12 @@ var AnnotationSidebarPlugin = class extends import_obsidian5.Plugin {
       if (view && !view.isEditing()) void view.refresh();
     }));
     this.registerEvent(this.app.vault.on("delete", (file) => {
-      if (file instanceof import_obsidian5.TFile && this.repository.isSidecarPath(file.path)) {
+      if (!(file instanceof import_obsidian5.TFile)) return;
+      if (file.extension.toLowerCase() === "md" && this.settings.autoTrashCompanion) {
+        void this.repository.trashCompanion(file.path).catch((error) => this.reportError("\u79FB\u52A8\u6279\u6CE8\u6587\u4EF6\u5230\u5E9F\u7EB8\u7BD3\u5931\u8D25", error));
+        return;
+      }
+      if (this.repository.isSidecarPath(file.path)) {
         void this.refreshOpenView();
       }
     }));

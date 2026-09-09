@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/annotation-sidebar/annotation-file.schema.json",
+  "title": "Annotation Sidebar document",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "source", "updatedAt", "annotations"],
+  "properties": {
+    "version": { "const": 1 },
+    "source": { "type": "string" },
+    "updatedAt": { "type": "string", "format": "date-time" },
+    "annotations": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/annotation" }
+    }
+  },
+  "$defs": {
+    "position": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["line", "ch", "offset"],
+      "properties": {
+        "line": { "type": "integer", "minimum": 0 },
+        "ch": { "type": "integer", "minimum": 0 },
+        "offset": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "anchor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "from", "to", "quote", "prefix", "suffix"],
+      "properties": {
+        "kind": { "enum": ["selection", "position"] },
+        "from": { "$ref": "#/$defs/position" },
+        "to": { "$ref": "#/$defs/position" },
+        "quote": { "type": "string" },
+        "prefix": { "type": "string" },
+        "suffix": { "type": "string" }
+      }
+    },
+    "annotation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "content", "createdAt", "updatedAt", "anchor"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "content": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "anchor": { "$ref": "#/$defs/anchor" }
+      }
+    }
+  }
+}
+

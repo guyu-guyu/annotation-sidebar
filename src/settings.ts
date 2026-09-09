@@ -6,12 +6,14 @@ export interface AnnotationSidebarSettings {
   annotationSuffix: string;
   autosaveDelay: number;
   autoRenameCompanion: boolean;
+  autoTrashCompanion: boolean;
 }
 
 export const DEFAULT_SETTINGS: AnnotationSidebarSettings = {
   annotationSuffix: DEFAULT_ANNOTATION_SUFFIX,
   autosaveDelay: 500,
   autoRenameCompanion: true,
+  autoTrashCompanion: true,
 };
 
 export class AnnotationSidebarSettingTab extends PluginSettingTab {
@@ -63,6 +65,15 @@ export class AnnotationSidebarSettingTab extends PluginSettingTab {
           this.plugin.settings.autoRenameCompanion = value;
           await this.plugin.saveSettings();
         }));
+
+    new Setting(this.containerEl)
+      .setName("删除笔记时移入批注文件")
+      .setDesc("删除 Markdown 笔记时，使用 Obsidian 当前的废纸篓策略处理对应批注文件。")
+      .addToggle((toggle) => toggle
+        .setValue(this.plugin.settings.autoTrashCompanion)
+        .onChange(async (value) => {
+          this.plugin.settings.autoTrashCompanion = value;
+          await this.plugin.saveSettings();
+        }));
   }
 }
-

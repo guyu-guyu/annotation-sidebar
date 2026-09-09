@@ -49,12 +49,17 @@ export class AnnotationRepository {
 
   async updateContent(note: TFile, id: string, content: string): Promise<AnnotationDocument> {
     const now = new Date().toISOString();
-    return this.mutate(note, (document) => ({
-      ...document,
-      annotations: document.annotations.map((annotation) => annotation.id === id
-        ? { ...annotation, content, updatedAt: now }
-        : annotation),
-    }));
+    return this.mutate(note, (document) => {
+      if (!document.annotations.some((annotation) => annotation.id === id)) {
+        throw new Error(`批注不存在或已被删除：${id}`);
+      }
+      return {
+        ...document,
+        annotations: document.annotations.map((annotation) => annotation.id === id
+          ? { ...annotation, content, updatedAt: now }
+          : annotation),
+      };
+    });
   }
 
   async remove(note: TFile, id: string): Promise<AnnotationDocument> {
@@ -102,6 +107,14 @@ export class AnnotationRepository {
     }
   }
 
+  async trashCompanion(sourcePath: string): Promise<void> {
+    const path = normalizePath(annotationPathFor(sourcePath, this.getSuffix()));
+    const file = this.app.vault.getAbstractFileByPath(path);
+    if (file === null) return;
+    this.beforeWrite(path);
+    await this.app.fileManager.trashFile(file);
+  }
+
   private async mutate(note: TFile, updater: DocumentUpdater): Promise<AnnotationDocument> {
     const path = this.pathForNote(note);
     const existing = this.app.vault.getAbstractFileByPath(path);
@@ -143,4 +156,3 @@ function normalizeDocument(
     updatedAt,
   };
 }
-

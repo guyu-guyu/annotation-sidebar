@@ -142,6 +142,7 @@ export class AnnotationView extends ItemView {
     itemActions.appendChild(this.createIconButton("trash-2", "删除批注", () => {
       this.plugin.confirmDelete(annotation, async () => {
         try {
+          this.cancelPendingSave(annotation.id);
           await this.plugin.repository.remove(note, annotation.id);
           this.plugin.refreshEditorHighlights(note.path);
           await this.refresh();
@@ -214,6 +215,14 @@ export class AnnotationView extends ItemView {
     this.saveTimers.delete(id);
     this.pendingSaves.delete(id);
     void this.saveContent(note, id, value, status);
+  }
+
+  private cancelPendingSave(id: string): void {
+    const timer = this.saveTimers.get(id);
+    if (timer !== undefined) window.clearTimeout(timer);
+    this.saveTimers.delete(id);
+    this.pendingSaves.delete(id);
+    this.saveVersions.set(id, (this.saveVersions.get(id) ?? 0) + 1);
   }
 
   private async saveContent(note: TFile, id: string, value: string, status: HTMLElement): Promise<void> {
