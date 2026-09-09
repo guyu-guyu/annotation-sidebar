@@ -185,3 +185,18 @@
 @keyframes annotation-sidebar-spin {
   to { transform: rotate(360deg); }
 }
+
+.annotation-sidebar-highlight {
+  background-color: var(--text-highlight-bg);
+  border-bottom: 1px solid var(--interactive-accent);
+}
+
+.annotation-sidebar-position-marker {
+  background: var(--interactive-accent);
+  border-radius: 2px;
+  display: inline-block;
+  height: 1.25em;
+  margin: 0 1px;
+  vertical-align: text-bottom;
+  width: 3px;
+}

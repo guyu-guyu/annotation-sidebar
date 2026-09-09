@@ -10,6 +10,10 @@ import {
 } from "obsidian";
 import { AnnotationView, ANNOTATION_VIEW_TYPE } from "./annotation-view";
 import { createAnchor, createAnnotation, normalizeSuffix, resolveAnchor } from "./core";
+import {
+  createAnnotationEditorExtension,
+  refreshAnnotationHighlights,
+} from "./editor-highlights";
 import { AnnotationRepository } from "./repository";
 import {
   AnnotationSidebarSettingTab,
@@ -36,6 +40,7 @@ export default class AnnotationSidebarPlugin extends Plugin {
       ANNOTATION_VIEW_TYPE,
       (leaf) => new AnnotationView(leaf, this),
     );
+    this.registerEditorExtension(createAnnotationEditorExtension(this));
 
     this.addRibbonIcon("message-square-text", "打开批注侧栏", () => {
       void this.activateView();
@@ -77,6 +82,8 @@ export default class AnnotationSidebarPlugin extends Plugin {
     this.registerEvent(this.app.vault.on("modify", (file) => {
       if (!(file instanceof TFile) || !this.repository.isSidecarPath(file.path)) return;
       if (this.consumeOwnWrite(file.path)) return;
+      const sourcePath = this.repository.sourcePathFromSidecar(file.path);
+      if (sourcePath) this.refreshEditorHighlights(sourcePath);
       const view = this.getOpenView();
       if (view && !view.isEditing()) void view.refresh();
     }));
@@ -135,6 +142,7 @@ export default class AnnotationSidebarPlugin extends Plugin {
 
     try {
       await this.repository.add(note, annotation);
+      this.refreshEditorHighlights(note.path);
       const view = await this.activateView();
       await view?.refresh(annotation.id);
     } catch (error) {
@@ -195,6 +203,10 @@ export default class AnnotationSidebarPlugin extends Plugin {
     const message = error instanceof Error ? error.message : String(error);
     console.error(`[Annotation Sidebar] ${context}`, error);
     new Notice(`${context}：${message}`);
+  }
+
+  refreshEditorHighlights(filePath?: string): void {
+    refreshAnnotationHighlights(filePath);
   }
 
   private async loadSettings(): Promise<void> {

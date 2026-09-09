@@ -16,6 +16,7 @@ export class AnnotationView extends ItemView {
   private renderVersion = 0;
   private saveTimers = new Map<string, number>();
   private saveVersions = new Map<string, number>();
+  private pendingSaves = new Map<string, { note: TFile; value: string; status: HTMLElement }>();
 
   constructor(leaf: WorkspaceLeaf, private readonly plugin: AnnotationSidebarPlugin) {
     super(leaf);
@@ -38,8 +39,16 @@ export class AnnotationView extends ItemView {
   }
 
   async onClose(): Promise<void> {
+    const pending = [...this.pendingSaves.entries()];
     for (const timer of this.saveTimers.values()) window.clearTimeout(timer);
     this.saveTimers.clear();
+    this.pendingSaves.clear();
+    await Promise.all(pending.map(([id, save]) => this.saveContent(
+      save.note,
+      id,
+      save.value,
+      save.status,
+    )));
   }
 
   isEditing(): boolean {
@@ -134,6 +143,7 @@ export class AnnotationView extends ItemView {
       this.plugin.confirmDelete(annotation, async () => {
         try {
           await this.plugin.repository.remove(note, annotation.id);
+          this.plugin.refreshEditorHighlights(note.path);
           await this.refresh();
         } catch (error) {
           this.plugin.reportError("删除批注失败", error);
@@ -188,8 +198,10 @@ export class AnnotationView extends ItemView {
   private queueSave(note: TFile, id: string, value: string, status: HTMLElement): void {
     const existing = this.saveTimers.get(id);
     if (existing !== undefined) window.clearTimeout(existing);
+    this.pendingSaves.set(id, { note, value, status });
     const timer = window.setTimeout(() => {
       this.saveTimers.delete(id);
+      this.pendingSaves.delete(id);
       void this.saveContent(note, id, value, status);
     }, this.plugin.settings.autosaveDelay);
     this.saveTimers.set(id, timer);
@@ -200,6 +212,7 @@ export class AnnotationView extends ItemView {
     if (timer === undefined) return;
     window.clearTimeout(timer);
     this.saveTimers.delete(id);
+    this.pendingSaves.delete(id);
     void this.saveContent(note, id, value, status);
   }
 
