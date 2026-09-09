@@ -1,0 +1,29 @@
+src/main.ts
+  s_258ec1f6cb4cf5::t_43ab8d11afe376 1-47,49-275
+  s_258ec1f6cb4cf5::t_e40ab8f02614ea 48
+styles.css
+  s_258ec1f6cb4cf5::t_43ab8d11afe376 1-187
+src/repository.ts
+  s_258ec1f6cb4cf5::t_43ab8d11afe376 1-146
+src/annotation-view.ts
+  s_258ec1f6cb4cf5::t_43ab8d11afe376 1-221,223-279
+  s_258ec1f6cb4cf5::t_e40ab8f02614ea 222
+src/settings.ts
+  s_258ec1f6cb4cf5::t_43ab8d11afe376 1-68
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "0f8b662cbcebf21bddbcd8f85abce0c4b1ccabae",
+  "prompts": {},
+  "sessions": {
+    "s_258ec1f6cb4cf5": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a08598-dff0-7e13-9916-4c0a7d1f65a9",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "leijieliu <leijieliu@tencent.com>"
+    }
+  }
+}
