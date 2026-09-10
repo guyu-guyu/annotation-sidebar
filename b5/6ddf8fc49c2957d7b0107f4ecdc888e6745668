@@ -1,0 +1,37 @@
+CHANGELOG.md
+  s_258ec1f6cb4cf5::t_c99066af2bc469 3-7
+src/main.ts
+  s_258ec1f6cb4cf5::t_93d4e34b78105c 253-259
+docs/DEVELOPMENT.md
+  s_258ec1f6cb4cf5::t_c99066af2bc469 44
+versions.json
+  s_258ec1f6cb4cf5::t_c99066af2bc469 3-4
+styles.css
+  s_258ec1f6cb4cf5::t_93d4e34b78105c 42-64
+docs/DESIGN.md
+  s_258ec1f6cb4cf5::t_a479cf15be6fc3 50
+README.md
+  s_258ec1f6cb4cf5::t_c99066af2bc469 40
+manifest.json
+  s_258ec1f6cb4cf5::t_c99066af2bc469 4
+src/annotation-view.ts
+  s_258ec1f6cb4cf5::t_93d4e34b78105c 98-113,169
+package.json
+  s_258ec1f6cb4cf5::t_c99066af2bc469 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "b56ddf8fc49c2957d7b0107f4ecdc888e6745668",
+  "prompts": {},
+  "sessions": {
+    "s_258ec1f6cb4cf5": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a08598-dff0-7e13-9916-4c0a7d1f65a9",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "leijieliu <leijieliu@tencent.com>"
+    }
+  }
+}
