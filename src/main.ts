@@ -1,7 +1,6 @@
 import {
   Editor,
   MarkdownView,
-  Menu,
   Modal,
   Notice,
   Plugin,
@@ -14,6 +13,7 @@ import {
   createAnnotationEditorExtension,
   refreshAnnotationHighlights,
 } from "./editor-highlights";
+import { ReadingAnnotationRenderer } from "./reading-annotations";
 import { AnnotationRepository } from "./repository";
 import {
   AnnotationSidebarSettingTab,
@@ -25,6 +25,7 @@ import type { Annotation } from "./types";
 export default class AnnotationSidebarPlugin extends Plugin {
   settings: AnnotationSidebarSettings = { ...DEFAULT_SETTINGS };
   repository!: AnnotationRepository;
+  readingAnnotations!: ReadingAnnotationRenderer;
   private lastMarkdownView: MarkdownView | null = null;
   private ownWrites = new Map<string, number>();
 
@@ -41,6 +42,8 @@ export default class AnnotationSidebarPlugin extends Plugin {
       (leaf) => new AnnotationView(leaf, this),
     );
     this.registerEditorExtension(createAnnotationEditorExtension(this));
+    this.readingAnnotations = new ReadingAnnotationRenderer(this);
+    this.registerMarkdownPostProcessor(this.readingAnnotations.postProcessor);
 
     this.addRibbonIcon("message-square-text", "打开批注侧栏", () => {
       void this.activateView();
@@ -79,11 +82,21 @@ export default class AnnotationSidebarPlugin extends Plugin {
       void this.refreshOpenView();
     }));
 
+    this.registerEvent(this.app.vault.on("create", (file) => {
+      if (!(file instanceof TFile)) return;
+      const sourcePath = this.repository.sourcePathFromSidecar(file.path);
+      if (sourcePath) {
+        this.refreshInlineDisplays(sourcePath);
+        this.consumeOwnWrite(file.path);
+      }
+    }));
+
     this.registerEvent(this.app.vault.on("modify", (file) => {
       if (!(file instanceof TFile) || !this.repository.isSidecarPath(file.path)) return;
-      if (this.consumeOwnWrite(file.path)) return;
       const sourcePath = this.repository.sourcePathFromSidecar(file.path);
-      if (sourcePath) this.refreshEditorHighlights(sourcePath);
+      if (!sourcePath) return;
+      this.refreshInlineDisplays(sourcePath);
+      if (this.consumeOwnWrite(file.path)) return;
       const view = this.getOpenView();
       if (view && !view.isEditing()) void view.refresh();
     }));
@@ -96,6 +109,11 @@ export default class AnnotationSidebarPlugin extends Plugin {
         return;
       }
       if (this.repository.isSidecarPath(file.path)) {
+        const sourcePath = this.repository.sourcePathFromSidecar(file.path);
+        if (sourcePath) {
+          this.refreshInlineDisplays(sourcePath);
+          this.consumeOwnWrite(file.path);
+        }
         void this.refreshOpenView();
       }
     }));
@@ -104,7 +122,11 @@ export default class AnnotationSidebarPlugin extends Plugin {
       if (!(file instanceof TFile) || file.extension.toLowerCase() !== "md") return;
       if (!this.settings.autoRenameCompanion) return;
       void this.repository.renameCompanion(oldPath, file)
-        .then(() => this.refreshOpenView())
+        .then(() => {
+          this.readingAnnotations.invalidate();
+          this.refreshReadingViews();
+          return this.refreshOpenView();
+        })
         .catch((error: unknown) => this.reportError("同步重命名批注文件失败", error));
     }));
 
@@ -148,7 +170,7 @@ export default class AnnotationSidebarPlugin extends Plugin {
 
     try {
       await this.repository.add(note, annotation);
-      this.refreshEditorHighlights(note.path);
+      this.refreshInlineDisplays(note.path);
       const view = await this.activateView();
       await view?.refresh(annotation.id);
     } catch (error) {
@@ -179,6 +201,26 @@ export default class AnnotationSidebarPlugin extends Plugin {
     }
   }
 
+  async openAnnotationInSidebar(sourcePath: string, annotationId: string): Promise<void> {
+    const source = this.app.vault.getAbstractFileByPath(sourcePath);
+    if (!(source instanceof TFile) || source.extension.toLowerCase() !== "md") {
+      new Notice("找不到批注对应的 Markdown 笔记");
+      return;
+    }
+
+    const sourceLeaf = this.findLeafForFile(source);
+    if (sourceLeaf?.view instanceof MarkdownView) {
+      this.lastMarkdownView = sourceLeaf.view;
+    } else {
+      const leaf = this.app.workspace.getLeaf(false);
+      await leaf.openFile(source, { active: true });
+      if (leaf.view instanceof MarkdownView) this.lastMarkdownView = leaf.view;
+    }
+
+    const view = await this.activateView();
+    if (view) await view.refresh(annotationId, source);
+  }
+
   confirmDelete(annotation: Annotation, onConfirm: () => Promise<void>): void {
     new ConfirmDeleteModal(this, annotation, onConfirm).open();
   }
@@ -199,6 +241,9 @@ export default class AnnotationSidebarPlugin extends Plugin {
 
   async refreshView(): Promise<void> {
     await this.refreshOpenView();
+    this.readingAnnotations.invalidate();
+    this.refreshEditorHighlights();
+    this.refreshReadingViews();
   }
 
   async saveSettings(): Promise<void> {
@@ -213,6 +258,21 @@ export default class AnnotationSidebarPlugin extends Plugin {
 
   refreshEditorHighlights(filePath?: string): void {
     refreshAnnotationHighlights(filePath);
+  }
+
+  refreshInlineDisplays(filePath: string): void {
+    this.readingAnnotations.invalidate(filePath);
+    this.refreshEditorHighlights(filePath);
+    this.refreshReadingViews(filePath);
+  }
+
+  private refreshReadingViews(filePath?: string): void {
+    this.app.workspace.iterateAllLeaves((leaf) => {
+      const view = leaf.view;
+      if (!(view instanceof MarkdownView)) return;
+      if (filePath !== undefined && view.file?.path !== filePath) return;
+      view.previewMode.rerender(true);
+    });
   }
 
   private async loadSettings(): Promise<void> {

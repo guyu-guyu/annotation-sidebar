@@ -26,7 +26,7 @@ __export(main_exports, {
   default: () => AnnotationSidebarPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian5 = require("obsidian");
+var import_obsidian6 = require("obsidian");
 
 // src/annotation-view.ts
 var import_obsidian = require("obsidian");
@@ -339,9 +339,9 @@ var AnnotationView = class extends import_obsidian.ItemView {
     const activeElement = document.activeElement;
     return activeElement instanceof HTMLTextAreaElement && this.contentEl.contains(activeElement);
   }
-  async refresh(focusAnnotationId) {
+  async refresh(focusAnnotationId, noteOverride) {
     const version = ++this.renderVersion;
-    const note = this.plugin.getCurrentNote();
+    const note = noteOverride != null ? noteOverride : this.plugin.getCurrentNote();
     this.contentEl.empty();
     this.contentEl.addClass("annotation-sidebar");
     this.renderHeader(note);
@@ -417,7 +417,7 @@ var AnnotationView = class extends import_obsidian.ItemView {
         try {
           this.cancelPendingSave(annotation.id);
           await this.plugin.repository.remove(note, annotation.id);
-          this.plugin.refreshEditorHighlights(note.path);
+          this.plugin.refreshInlineDisplays(note.path);
           await this.refresh();
         } catch (error) {
           this.plugin.reportError("\u5220\u9664\u6279\u6CE8\u5931\u8D25", error);
@@ -498,6 +498,7 @@ var AnnotationView = class extends import_obsidian.ItemView {
     status.setText("\u4FDD\u5B58\u4E2D");
     try {
       await this.plugin.repository.updateContent(note, id, value);
+      this.plugin.refreshInlineDisplays(note.path);
       if (this.saveVersions.get(id) === version) status.setText("\u5DF2\u4FDD\u5B58");
     } catch (error) {
       if (this.saveVersions.get(id) === version) status.setText("\u4FDD\u5B58\u5931\u8D25");
@@ -560,6 +561,25 @@ function formatTimestamp(value) {
 var import_state = require("@codemirror/state");
 var import_view = require("@codemirror/view");
 var import_obsidian2 = require("obsidian");
+
+// src/inline-display.ts
+function annotationDisplayLine(annotation) {
+  return annotation.anchor.kind === "selection" ? annotation.anchor.to.line : annotation.anchor.from.line;
+}
+function shouldDisplayAnnotationContent(content) {
+  return content.trim().length > 0;
+}
+function annotationBelongsToSection(annotation, section) {
+  const line = annotationDisplayLine(annotation);
+  return line >= section.lineStart && line <= section.lineEnd;
+}
+function compareAnnotationsForDisplay(left, right) {
+  const lineDifference = annotationDisplayLine(left) - annotationDisplayLine(right);
+  if (lineDifference !== 0) return lineDifference;
+  return left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id);
+}
+
+// src/editor-highlights.ts
 var setAnnotationsEffect = import_state.StateEffect.define();
 var annotationField = import_state.StateField.define({
   create: () => import_view.Decoration.none,
@@ -627,21 +647,45 @@ function createAnnotationEditorExtension(plugin) {
         const document2 = await plugin.repository.load(file);
         if (generation !== this.generation) return;
         const content = this.view.state.doc.toString();
-        const decorations = document2.annotations.map((annotation) => {
+        const decorations = [...document2.annotations].sort(compareAnnotationsForDisplay).flatMap((annotation) => {
           const anchor = resolveAnchor(content, annotation.anchor);
+          const annotationDecorations = [];
           if (anchor.from === anchor.to) {
-            return import_view.Decoration.widget({
-              widget: new PositionAnnotationWidget(annotation.id),
+            annotationDecorations.push(import_view.Decoration.widget({
+              widget: new PositionAnnotationWidget(
+                annotation.id,
+                file.path,
+                () => void plugin.openAnnotationInSidebar(file.path, annotation.id)
+              ),
               side: 1
-            }).range(anchor.from);
+            }).range(anchor.from));
+          } else {
+            annotationDecorations.push(import_view.Decoration.mark({
+              class: "annotation-sidebar-highlight",
+              attributes: {
+                "data-annotation-id": annotation.id,
+                title: "\u6B64\u5904\u6709\u6279\u6CE8"
+              }
+            }).range(anchor.from, anchor.to));
           }
-          return import_view.Decoration.mark({
-            class: "annotation-sidebar-highlight",
-            attributes: {
-              "data-annotation-id": annotation.id,
-              title: "\u6B64\u5904\u6709\u6279\u6CE8"
-            }
-          }).range(anchor.from, anchor.to);
+          if (plugin.settings.showInlineAnnotations && shouldDisplayAnnotationContent(annotation.content)) {
+            const displayLine = Math.min(
+              this.view.state.doc.lines - 1,
+              Math.max(0, annotationDisplayLine(annotation))
+            );
+            const displayPosition = this.view.state.doc.line(displayLine + 1).to;
+            annotationDecorations.push(import_view.Decoration.widget({
+              block: true,
+              side: 1,
+              widget: new AnnotationContentWidget(
+                annotation.id,
+                annotation.content,
+                file.path,
+                () => void plugin.openAnnotationInSidebar(file.path, annotation.id)
+              )
+            }).range(displayPosition));
+          }
+          return annotationDecorations;
         });
         this.applyDecorations(import_view.Decoration.set(decorations, true), generation);
       } catch (error) {
@@ -662,12 +706,14 @@ function refreshAnnotationHighlights(filePath) {
   }
 }
 var PositionAnnotationWidget = class extends import_view.WidgetType {
-  constructor(annotationId) {
+  constructor(annotationId, filePath, onClick) {
     super();
     __publicField(this, "annotationId", annotationId);
+    __publicField(this, "filePath", filePath);
+    __publicField(this, "onClick", onClick);
   }
   eq(other) {
-    return other.annotationId === this.annotationId;
+    return other.annotationId === this.annotationId && other.filePath === this.filePath;
   }
   toDOM() {
     const marker = document.createElement("span");
@@ -675,10 +721,60 @@ var PositionAnnotationWidget = class extends import_view.WidgetType {
     marker.dataset.annotationId = this.annotationId;
     marker.setAttribute("aria-label", "\u6B64\u5904\u6709\u4F4D\u7F6E\u6279\u6CE8");
     marker.title = "\u6B64\u5904\u6709\u4F4D\u7F6E\u6279\u6CE8";
+    marker.tabIndex = 0;
+    marker.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      this.onClick();
+    });
+    marker.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      this.onClick();
+    });
     return marker;
   }
   ignoreEvent() {
-    return false;
+    return true;
+  }
+};
+var AnnotationContentWidget = class extends import_view.WidgetType {
+  constructor(annotationId, content, filePath, onClick) {
+    super();
+    __publicField(this, "annotationId", annotationId);
+    __publicField(this, "content", content);
+    __publicField(this, "filePath", filePath);
+    __publicField(this, "onClick", onClick);
+  }
+  eq(other) {
+    return other.annotationId === this.annotationId && other.content === this.content && other.filePath === this.filePath;
+  }
+  toDOM() {
+    const wrapper = document.createElement("div");
+    wrapper.className = "annotation-sidebar-inline-content";
+    wrapper.dataset.annotationId = this.annotationId;
+    wrapper.tabIndex = 0;
+    wrapper.setAttribute("role", "button");
+    wrapper.setAttribute("aria-label", "\u6253\u5F00\u6B64\u6279\u6CE8");
+    wrapper.title = "\u70B9\u51FB\u5728\u6279\u6CE8\u4FA7\u680F\u4E2D\u6253\u5F00";
+    const body = document.createElement("div");
+    body.className = "annotation-sidebar-inline-content__body";
+    body.textContent = this.content;
+    wrapper.appendChild(body);
+    wrapper.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      this.onClick();
+    });
+    wrapper.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      this.onClick();
+    });
+    return wrapper;
+  }
+  ignoreEvent() {
+    return true;
   }
 };
 function getEditorFile(view) {
@@ -687,8 +783,90 @@ function getEditorFile(view) {
   return (_a = info == null ? void 0 : info.file) != null ? _a : null;
 }
 
-// src/repository.ts
+// src/reading-annotations.ts
 var import_obsidian3 = require("obsidian");
+var ReadingAnnotationRenderer = class {
+  constructor(plugin) {
+    __publicField(this, "plugin", plugin);
+    __publicField(this, "postProcessor");
+    __publicField(this, "documentCache", /* @__PURE__ */ new Map());
+    __publicField(this, "renderedByContext", /* @__PURE__ */ new WeakMap());
+    this.postProcessor = async (element, context) => {
+      await this.process(element, context);
+    };
+  }
+  invalidate(sourcePath) {
+    if (sourcePath === void 0) this.documentCache.clear();
+    else this.documentCache.delete(sourcePath);
+  }
+  async process(element, context) {
+    var _a;
+    if (!this.plugin.settings.showInlineAnnotations) return;
+    const section = context.getSectionInfo(element);
+    if (section === null) return;
+    const document2 = await this.load(context.sourcePath);
+    if (document2 === null || !this.plugin.settings.showInlineAnnotations) return;
+    const rendered = (_a = this.renderedByContext.get(context)) != null ? _a : /* @__PURE__ */ new Set();
+    this.renderedByContext.set(context, rendered);
+    const annotations = document2.annotations.filter((annotation) => shouldDisplayAnnotationContent(annotation.content)).filter((annotation) => annotationBelongsToSection(annotation, section)).sort(compareAnnotationsForDisplay).filter((annotation) => !rendered.has(annotation.id));
+    if (annotations.length === 0) return;
+    annotations.forEach((annotation) => rendered.add(annotation.id));
+    const container = element.ownerDocument.createElement("div");
+    container.className = "annotation-sidebar-reading-content";
+    container.dataset.annotationSource = context.sourcePath;
+    for (const annotation of annotations) {
+      container.appendChild(this.createAnnotationElement(
+        annotation.id,
+        annotation.content,
+        context.sourcePath,
+        element.ownerDocument
+      ));
+    }
+    const host = element.tagName === "LI" ? element : element.parentElement;
+    if (host === null) return;
+    if (host === element) {
+      element.appendChild(container);
+    } else {
+      host.insertBefore(container, element.nextSibling);
+    }
+    context.addChild(new import_obsidian3.MarkdownRenderChild(container));
+  }
+  async load(sourcePath) {
+    const cached = this.documentCache.get(sourcePath);
+    if (cached !== void 0) return cached;
+    const promise = Promise.resolve().then(async () => {
+      const source = this.plugin.app.vault.getAbstractFileByPath(sourcePath);
+      if (!(source instanceof import_obsidian3.TFile) || source.extension.toLowerCase() !== "md") return null;
+      try {
+        return await this.plugin.repository.load(source);
+      } catch (error) {
+        console.error(`[Annotation Sidebar] Failed to render reading-mode annotations for ${sourcePath}`, error);
+        return null;
+      }
+    });
+    this.documentCache.set(sourcePath, promise);
+    return promise;
+  }
+  createAnnotationElement(annotationId, content, sourcePath, ownerDocument) {
+    const button = ownerDocument.createElement("button");
+    button.type = "button";
+    button.className = "annotation-sidebar-reading-content__item";
+    button.dataset.annotationId = annotationId;
+    button.setAttribute("aria-label", "\u5728\u6279\u6CE8\u4FA7\u680F\u4E2D\u6253\u5F00\u6B64\u6279\u6CE8");
+    button.title = "\u70B9\u51FB\u5728\u6279\u6CE8\u4FA7\u680F\u4E2D\u6253\u5F00";
+    button.textContent = content;
+    const open = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      void this.plugin.openAnnotationInSidebar(sourcePath, annotationId);
+    };
+    button.addEventListener("click", open);
+    return button;
+  }
+};
+
+// src/repository.ts
+var import_obsidian4 = require("obsidian");
 var AnnotationRepository = class {
   constructor(app, getSuffix, beforeWrite) {
     __publicField(this, "app", app);
@@ -696,10 +874,10 @@ var AnnotationRepository = class {
     __publicField(this, "beforeWrite", beforeWrite);
   }
   pathForNote(note) {
-    return (0, import_obsidian3.normalizePath)(annotationPathFor(note.path, this.getSuffix()));
+    return (0, import_obsidian4.normalizePath)(annotationPathFor(note.path, this.getSuffix()));
   }
   sourcePathFromSidecar(path) {
-    return sourcePathForAnnotation((0, import_obsidian3.normalizePath)(path), this.getSuffix());
+    return sourcePathForAnnotation((0, import_obsidian4.normalizePath)(path), this.getSuffix());
   }
   isSidecarPath(path) {
     return this.sourcePathFromSidecar(path) !== null;
@@ -708,7 +886,7 @@ var AnnotationRepository = class {
     const path = this.pathForNote(note);
     const file = this.app.vault.getAbstractFileByPath(path);
     if (file === null) return createEmptyDocument(note.path);
-    if (!(file instanceof import_obsidian3.TFile)) {
+    if (!(file instanceof import_obsidian4.TFile)) {
       throw new Error(`\u6279\u6CE8\u8DEF\u5F84\u4E0D\u662F\u6587\u4EF6\uFF1A${path}`);
     }
     const document2 = parseAnnotationDocument(await this.app.vault.read(file), note.path);
@@ -740,7 +918,7 @@ var AnnotationRepository = class {
     if (document2.annotations.length === 0) {
       const path = this.pathForNote(note);
       const file = this.app.vault.getAbstractFileByPath(path);
-      if (file instanceof import_obsidian3.TFile) {
+      if (file instanceof import_obsidian4.TFile) {
         this.beforeWrite(path);
         await this.app.vault.delete(file);
       }
@@ -748,9 +926,9 @@ var AnnotationRepository = class {
     return document2;
   }
   async renameCompanion(oldSourcePath, newNote) {
-    const oldPath = (0, import_obsidian3.normalizePath)(annotationPathFor(oldSourcePath, this.getSuffix()));
+    const oldPath = (0, import_obsidian4.normalizePath)(annotationPathFor(oldSourcePath, this.getSuffix()));
     const oldFile = this.app.vault.getAbstractFileByPath(oldPath);
-    if (!(oldFile instanceof import_obsidian3.TFile)) return;
+    if (!(oldFile instanceof import_obsidian4.TFile)) return;
     const newPath = this.pathForNote(newNote);
     if (this.app.vault.getAbstractFileByPath(newPath) !== null) {
       throw new Error(`\u76EE\u6807\u6279\u6CE8\u6587\u4EF6\u5DF2\u5B58\u5728\uFF1A${newPath}`);
@@ -759,7 +937,7 @@ var AnnotationRepository = class {
     this.beforeWrite(newPath);
     await this.app.vault.rename(oldFile, newPath);
     const renamed = this.app.vault.getAbstractFileByPath(newPath);
-    if (renamed instanceof import_obsidian3.TFile) {
+    if (renamed instanceof import_obsidian4.TFile) {
       this.beforeWrite(newPath);
       await this.app.vault.process(renamed, (raw) => {
         const document2 = parseAnnotationDocument(raw, newNote.path);
@@ -772,7 +950,7 @@ var AnnotationRepository = class {
     }
   }
   async trashCompanion(sourcePath) {
-    const path = (0, import_obsidian3.normalizePath)(annotationPathFor(sourcePath, this.getSuffix()));
+    const path = (0, import_obsidian4.normalizePath)(annotationPathFor(sourcePath, this.getSuffix()));
     const file = this.app.vault.getAbstractFileByPath(path);
     if (file === null) return;
     this.beforeWrite(path);
@@ -788,7 +966,7 @@ var AnnotationRepository = class {
       await this.app.vault.create(path, serializeAnnotationDocument(updated));
       return updated;
     }
-    if (!(existing instanceof import_obsidian3.TFile)) {
+    if (!(existing instanceof import_obsidian4.TFile)) {
       throw new Error(`\u6279\u6CE8\u8DEF\u5F84\u4E0D\u662F\u6587\u4EF6\uFF1A${path}`);
     }
     let updatedDocument = null;
@@ -813,14 +991,15 @@ function normalizeDocument(document2, source, updatedAt) {
 }
 
 // src/settings.ts
-var import_obsidian4 = require("obsidian");
+var import_obsidian5 = require("obsidian");
 var DEFAULT_SETTINGS = {
   annotationSuffix: DEFAULT_ANNOTATION_SUFFIX,
   autosaveDelay: 500,
   autoRenameCompanion: true,
-  autoTrashCompanion: true
+  autoTrashCompanion: true,
+  showInlineAnnotations: false
 };
-var AnnotationSidebarSettingTab = class extends import_obsidian4.PluginSettingTab {
+var AnnotationSidebarSettingTab = class extends import_obsidian5.PluginSettingTab {
   constructor(plugin) {
     super(plugin.app, plugin);
     __publicField(this, "plugin", plugin);
@@ -828,7 +1007,7 @@ var AnnotationSidebarSettingTab = class extends import_obsidian4.PluginSettingTa
   display() {
     this.containerEl.empty();
     this.containerEl.createEl("h2", { text: "\u6279\u6CE8\u4FA7\u680F" });
-    new import_obsidian4.Setting(this.containerEl).setName("\u6279\u6CE8\u6587\u4EF6\u540E\u7F00").setDesc("\u9ED8\u8BA4\u60C5\u51B5\u4E0B\uFF0CNote.md \u7684\u6279\u6CE8\u4FDD\u5B58\u5728 Note.annotations.json\u3002\u4FEE\u6539\u540E\u4E0D\u4F1A\u81EA\u52A8\u8FC1\u79FB\u5DF2\u6709\u6587\u4EF6\u3002").addText((text) => text.setPlaceholder(DEFAULT_ANNOTATION_SUFFIX).setValue(this.plugin.settings.annotationSuffix).onChange(async (value) => {
+    new import_obsidian5.Setting(this.containerEl).setName("\u6279\u6CE8\u6587\u4EF6\u540E\u7F00").setDesc("\u9ED8\u8BA4\u60C5\u51B5\u4E0B\uFF0CNote.md \u7684\u6279\u6CE8\u4FDD\u5B58\u5728 Note.annotations.json\u3002\u4FEE\u6539\u540E\u4E0D\u4F1A\u81EA\u52A8\u8FC1\u79FB\u5DF2\u6709\u6587\u4EF6\u3002").addText((text) => text.setPlaceholder(DEFAULT_ANNOTATION_SUFFIX).setValue(this.plugin.settings.annotationSuffix).onChange(async (value) => {
       try {
         const normalized = normalizeSuffix(value);
         this.plugin.settings.annotationSuffix = normalized;
@@ -836,31 +1015,37 @@ var AnnotationSidebarSettingTab = class extends import_obsidian4.PluginSettingTa
         text.setValue(normalized);
         await this.plugin.refreshView();
       } catch (error) {
-        new import_obsidian4.Notice(error instanceof Error ? error.message : String(error));
+        new import_obsidian5.Notice(error instanceof Error ? error.message : String(error));
         text.setValue(this.plugin.settings.annotationSuffix);
       }
     }));
-    new import_obsidian4.Setting(this.containerEl).setName("\u81EA\u52A8\u4FDD\u5B58\u5EF6\u8FDF").setDesc("\u505C\u6B62\u8F93\u5165\u540E\u7B49\u5F85\u591A\u957F\u65F6\u95F4\u5199\u5165\u6279\u6CE8\u6587\u4EF6\u3002").addSlider((slider) => slider.setLimits(150, 2e3, 50).setDynamicTooltip().setValue(this.plugin.settings.autosaveDelay).onChange(async (value) => {
+    new import_obsidian5.Setting(this.containerEl).setName("\u81EA\u52A8\u4FDD\u5B58\u5EF6\u8FDF").setDesc("\u505C\u6B62\u8F93\u5165\u540E\u7B49\u5F85\u591A\u957F\u65F6\u95F4\u5199\u5165\u6279\u6CE8\u6587\u4EF6\u3002").addSlider((slider) => slider.setLimits(150, 2e3, 50).setDynamicTooltip().setValue(this.plugin.settings.autosaveDelay).onChange(async (value) => {
       this.plugin.settings.autosaveDelay = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian4.Setting(this.containerEl).setName("\u7B14\u8BB0\u91CD\u547D\u540D\u65F6\u540C\u6B65\u6279\u6CE8\u6587\u4EF6").setDesc("\u4FDD\u6301 Markdown \u7B14\u8BB0\u548C\u5BF9\u5E94\u6279\u6CE8\u6587\u4EF6\u7684\u540D\u79F0\u4E00\u81F4\u3002").addToggle((toggle) => toggle.setValue(this.plugin.settings.autoRenameCompanion).onChange(async (value) => {
+    new import_obsidian5.Setting(this.containerEl).setName("\u7B14\u8BB0\u91CD\u547D\u540D\u65F6\u540C\u6B65\u6279\u6CE8\u6587\u4EF6").setDesc("\u4FDD\u6301 Markdown \u7B14\u8BB0\u548C\u5BF9\u5E94\u6279\u6CE8\u6587\u4EF6\u7684\u540D\u79F0\u4E00\u81F4\u3002").addToggle((toggle) => toggle.setValue(this.plugin.settings.autoRenameCompanion).onChange(async (value) => {
       this.plugin.settings.autoRenameCompanion = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian4.Setting(this.containerEl).setName("\u5220\u9664\u7B14\u8BB0\u65F6\u79FB\u5165\u6279\u6CE8\u6587\u4EF6").setDesc("\u5220\u9664 Markdown \u7B14\u8BB0\u65F6\uFF0C\u4F7F\u7528 Obsidian \u5F53\u524D\u7684\u5E9F\u7EB8\u7BD3\u7B56\u7565\u5904\u7406\u5BF9\u5E94\u6279\u6CE8\u6587\u4EF6\u3002").addToggle((toggle) => toggle.setValue(this.plugin.settings.autoTrashCompanion).onChange(async (value) => {
+    new import_obsidian5.Setting(this.containerEl).setName("\u5220\u9664\u7B14\u8BB0\u65F6\u79FB\u5165\u6279\u6CE8\u6587\u4EF6").setDesc("\u5220\u9664 Markdown \u7B14\u8BB0\u65F6\uFF0C\u4F7F\u7528 Obsidian \u5F53\u524D\u7684\u5E9F\u7EB8\u7BD3\u7B56\u7565\u5904\u7406\u5BF9\u5E94\u6279\u6CE8\u6587\u4EF6\u3002").addToggle((toggle) => toggle.setValue(this.plugin.settings.autoTrashCompanion).onChange(async (value) => {
       this.plugin.settings.autoTrashCompanion = value;
       await this.plugin.saveSettings();
+    }));
+    new import_obsidian5.Setting(this.containerEl).setName("\u5728\u6B63\u6587\u4E2D\u663E\u793A\u6279\u6CE8").setDesc("\u5728\u7F16\u8F91\u6A21\u5F0F\u548C\u9605\u8BFB\u6A21\u5F0F\u4E2D\uFF0C\u5728\u6279\u6CE8\u4F4D\u7F6E\u4E0B\u65B9\u663E\u793A\u53EA\u8BFB\u6279\u6CE8\u5185\u5BB9\u3002").addToggle((toggle) => toggle.setValue(this.plugin.settings.showInlineAnnotations).onChange(async (value) => {
+      this.plugin.settings.showInlineAnnotations = value;
+      await this.plugin.saveSettings();
+      await this.plugin.refreshView();
     }));
   }
 };
 
 // src/main.ts
-var AnnotationSidebarPlugin = class extends import_obsidian5.Plugin {
+var AnnotationSidebarPlugin = class extends import_obsidian6.Plugin {
   constructor() {
     super(...arguments);
     __publicField(this, "settings", { ...DEFAULT_SETTINGS });
     __publicField(this, "repository");
+    __publicField(this, "readingAnnotations");
     __publicField(this, "lastMarkdownView", null);
     __publicField(this, "ownWrites", /* @__PURE__ */ new Map());
   }
@@ -876,6 +1061,8 @@ var AnnotationSidebarPlugin = class extends import_obsidian5.Plugin {
       (leaf) => new AnnotationView(leaf, this)
     );
     this.registerEditorExtension(createAnnotationEditorExtension(this));
+    this.readingAnnotations = new ReadingAnnotationRenderer(this);
+    this.registerMarkdownPostProcessor(this.readingAnnotations.postProcessor);
     this.addRibbonIcon("message-square-text", "\u6253\u5F00\u6279\u6CE8\u4FA7\u680F", () => {
       void this.activateView();
     });
@@ -883,7 +1070,7 @@ var AnnotationSidebarPlugin = class extends import_obsidian5.Plugin {
       id: "add-annotation",
       name: "\u5728\u9009\u533A\u6216\u5149\u6807\u5904\u6DFB\u52A0\u6279\u6CE8",
       editorCallback: (editor, view) => {
-        if (view instanceof import_obsidian5.MarkdownView) this.lastMarkdownView = view;
+        if (view instanceof import_obsidian6.MarkdownView) this.lastMarkdownView = view;
         void this.addAnnotation(editor, view.file);
       }
     });
@@ -896,40 +1083,58 @@ var AnnotationSidebarPlugin = class extends import_obsidian5.Plugin {
       menu.addItem((item) => item.setTitle(editor.somethingSelected() ? "\u4E3A\u9009\u4E2D\u6587\u672C\u6DFB\u52A0\u6279\u6CE8" : "\u5728\u5149\u6807\u5904\u6DFB\u52A0\u6279\u6CE8").setIcon("message-square-plus").onClick(() => void this.addAnnotation(editor, info.file)));
     }));
     this.registerEvent(this.app.workspace.on("active-leaf-change", (leaf) => {
-      if ((leaf == null ? void 0 : leaf.view) instanceof import_obsidian5.MarkdownView) this.lastMarkdownView = leaf.view;
+      if ((leaf == null ? void 0 : leaf.view) instanceof import_obsidian6.MarkdownView) this.lastMarkdownView = leaf.view;
       void this.refreshOpenView();
     }));
     this.registerEvent(this.app.workspace.on("file-open", () => {
-      const markdownView = this.app.workspace.getActiveViewOfType(import_obsidian5.MarkdownView);
+      const markdownView = this.app.workspace.getActiveViewOfType(import_obsidian6.MarkdownView);
       if (markdownView) this.lastMarkdownView = markdownView;
       void this.refreshOpenView();
     }));
-    this.registerEvent(this.app.vault.on("modify", (file) => {
-      if (!(file instanceof import_obsidian5.TFile) || !this.repository.isSidecarPath(file.path)) return;
-      if (this.consumeOwnWrite(file.path)) return;
+    this.registerEvent(this.app.vault.on("create", (file) => {
+      if (!(file instanceof import_obsidian6.TFile)) return;
       const sourcePath = this.repository.sourcePathFromSidecar(file.path);
-      if (sourcePath) this.refreshEditorHighlights(sourcePath);
+      if (sourcePath) {
+        this.refreshInlineDisplays(sourcePath);
+        this.consumeOwnWrite(file.path);
+      }
+    }));
+    this.registerEvent(this.app.vault.on("modify", (file) => {
+      if (!(file instanceof import_obsidian6.TFile) || !this.repository.isSidecarPath(file.path)) return;
+      const sourcePath = this.repository.sourcePathFromSidecar(file.path);
+      if (!sourcePath) return;
+      this.refreshInlineDisplays(sourcePath);
+      if (this.consumeOwnWrite(file.path)) return;
       const view = this.getOpenView();
       if (view && !view.isEditing()) void view.refresh();
     }));
     this.registerEvent(this.app.vault.on("delete", (file) => {
-      if (!(file instanceof import_obsidian5.TFile)) return;
+      if (!(file instanceof import_obsidian6.TFile)) return;
       if (file.extension.toLowerCase() === "md" && this.settings.autoTrashCompanion) {
         void this.repository.trashCompanion(file.path).catch((error) => this.reportError("\u79FB\u52A8\u6279\u6CE8\u6587\u4EF6\u5230\u5E9F\u7EB8\u7BD3\u5931\u8D25", error));
         return;
       }
       if (this.repository.isSidecarPath(file.path)) {
+        const sourcePath = this.repository.sourcePathFromSidecar(file.path);
+        if (sourcePath) {
+          this.refreshInlineDisplays(sourcePath);
+          this.consumeOwnWrite(file.path);
+        }
         void this.refreshOpenView();
       }
     }));
     this.registerEvent(this.app.vault.on("rename", (file, oldPath) => {
-      if (!(file instanceof import_obsidian5.TFile) || file.extension.toLowerCase() !== "md") return;
+      if (!(file instanceof import_obsidian6.TFile) || file.extension.toLowerCase() !== "md") return;
       if (!this.settings.autoRenameCompanion) return;
-      void this.repository.renameCompanion(oldPath, file).then(() => this.refreshOpenView()).catch((error) => this.reportError("\u540C\u6B65\u91CD\u547D\u540D\u6279\u6CE8\u6587\u4EF6\u5931\u8D25", error));
+      void this.repository.renameCompanion(oldPath, file).then(() => {
+        this.readingAnnotations.invalidate();
+        this.refreshReadingViews();
+        return this.refreshOpenView();
+      }).catch((error) => this.reportError("\u540C\u6B65\u91CD\u547D\u540D\u6279\u6CE8\u6587\u4EF6\u5931\u8D25", error));
     }));
     this.addSettingTab(new AnnotationSidebarSettingTab(this));
     this.app.workspace.onLayoutReady(() => {
-      const markdownView = this.app.workspace.getActiveViewOfType(import_obsidian5.MarkdownView);
+      const markdownView = this.app.workspace.getActiveViewOfType(import_obsidian6.MarkdownView);
       if (markdownView) this.lastMarkdownView = markdownView;
     });
   }
@@ -944,16 +1149,16 @@ var AnnotationSidebarPlugin = class extends import_obsidian5.Plugin {
   }
   async addAnnotationAtCurrentPosition() {
     var _a;
-    const view = (_a = this.app.workspace.getActiveViewOfType(import_obsidian5.MarkdownView)) != null ? _a : this.lastMarkdownView;
+    const view = (_a = this.app.workspace.getActiveViewOfType(import_obsidian6.MarkdownView)) != null ? _a : this.lastMarkdownView;
     if (!(view == null ? void 0 : view.file)) {
-      new import_obsidian5.Notice("\u8BF7\u5148\u6253\u5F00\u4E00\u7BC7 Markdown \u7B14\u8BB0");
+      new import_obsidian6.Notice("\u8BF7\u5148\u6253\u5F00\u4E00\u7BC7 Markdown \u7B14\u8BB0");
       return;
     }
     await this.addAnnotation(view.editor, view.file);
   }
   async addAnnotation(editor, note) {
     if (note === null || note.extension.toLowerCase() !== "md") {
-      new import_obsidian5.Notice("\u53EA\u80FD\u4E3A Markdown \u7B14\u8BB0\u6DFB\u52A0\u6279\u6CE8");
+      new import_obsidian6.Notice("\u53EA\u80FD\u4E3A Markdown \u7B14\u8BB0\u6DFB\u52A0\u6279\u6CE8");
       return;
     }
     const content = editor.getValue();
@@ -962,7 +1167,7 @@ var AnnotationSidebarPlugin = class extends import_obsidian5.Plugin {
     const annotation = createAnnotation(createAnchor(content, from, to));
     try {
       await this.repository.add(note, annotation);
-      this.refreshEditorHighlights(note.path);
+      this.refreshInlineDisplays(note.path);
       const view = await this.activateView();
       await (view == null ? void 0 : view.refresh(annotation.id));
     } catch (error) {
@@ -975,8 +1180,8 @@ var AnnotationSidebarPlugin = class extends import_obsidian5.Plugin {
       const leaf = (_a = this.findLeafForFile(note)) != null ? _a : this.app.workspace.getLeaf(false);
       await leaf.openFile(note, { active: true });
       const view = leaf.view;
-      if (!(view instanceof import_obsidian5.MarkdownView)) {
-        new import_obsidian5.Notice("\u65E0\u6CD5\u6253\u5F00 Markdown \u7F16\u8F91\u5668");
+      if (!(view instanceof import_obsidian6.MarkdownView)) {
+        new import_obsidian6.Notice("\u65E0\u6CD5\u6253\u5F00 Markdown \u7F16\u8F91\u5668");
         return;
       }
       this.lastMarkdownView = view;
@@ -986,10 +1191,27 @@ var AnnotationSidebarPlugin = class extends import_obsidian5.Plugin {
       view.editor.setSelection(from, to);
       view.editor.scrollIntoView({ from, to }, true);
       view.editor.focus();
-      if (!resolved.exact) new import_obsidian5.Notice("\u6B63\u6587\u5DF2\u53D8\u5316\uFF0C\u5DF2\u8DF3\u8F6C\u5230\u539F\u59CB\u4F4D\u7F6E\u9644\u8FD1");
+      if (!resolved.exact) new import_obsidian6.Notice("\u6B63\u6587\u5DF2\u53D8\u5316\uFF0C\u5DF2\u8DF3\u8F6C\u5230\u539F\u59CB\u4F4D\u7F6E\u9644\u8FD1");
     } catch (error) {
       this.reportError("\u8DF3\u8F6C\u5230\u6279\u6CE8\u4F4D\u7F6E\u5931\u8D25", error);
     }
+  }
+  async openAnnotationInSidebar(sourcePath, annotationId) {
+    const source = this.app.vault.getAbstractFileByPath(sourcePath);
+    if (!(source instanceof import_obsidian6.TFile) || source.extension.toLowerCase() !== "md") {
+      new import_obsidian6.Notice("\u627E\u4E0D\u5230\u6279\u6CE8\u5BF9\u5E94\u7684 Markdown \u7B14\u8BB0");
+      return;
+    }
+    const sourceLeaf = this.findLeafForFile(source);
+    if ((sourceLeaf == null ? void 0 : sourceLeaf.view) instanceof import_obsidian6.MarkdownView) {
+      this.lastMarkdownView = sourceLeaf.view;
+    } else {
+      const leaf = this.app.workspace.getLeaf(false);
+      await leaf.openFile(source, { active: true });
+      if (leaf.view instanceof import_obsidian6.MarkdownView) this.lastMarkdownView = leaf.view;
+    }
+    const view = await this.activateView();
+    if (view) await view.refresh(annotationId, source);
   }
   confirmDelete(annotation, onConfirm) {
     new ConfirmDeleteModal(this, annotation, onConfirm).open();
@@ -1000,7 +1222,7 @@ var AnnotationSidebarPlugin = class extends import_obsidian5.Plugin {
     if (leaf === null) {
       leaf = this.app.workspace.getRightLeaf(false);
       if (leaf === null) {
-        new import_obsidian5.Notice("\u65E0\u6CD5\u521B\u5EFA\u6279\u6CE8\u4FA7\u680F");
+        new import_obsidian6.Notice("\u65E0\u6CD5\u521B\u5EFA\u6279\u6CE8\u4FA7\u680F");
         return null;
       }
       await leaf.setViewState({ type: ANNOTATION_VIEW_TYPE, active: true });
@@ -1010,6 +1232,9 @@ var AnnotationSidebarPlugin = class extends import_obsidian5.Plugin {
   }
   async refreshView() {
     await this.refreshOpenView();
+    this.readingAnnotations.invalidate();
+    this.refreshEditorHighlights();
+    this.refreshReadingViews();
   }
   async saveSettings() {
     await this.saveData(this.settings);
@@ -1017,10 +1242,24 @@ var AnnotationSidebarPlugin = class extends import_obsidian5.Plugin {
   reportError(context, error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error(`[Annotation Sidebar] ${context}`, error);
-    new import_obsidian5.Notice(`${context}\uFF1A${message}`);
+    new import_obsidian6.Notice(`${context}\uFF1A${message}`);
   }
   refreshEditorHighlights(filePath) {
     refreshAnnotationHighlights(filePath);
+  }
+  refreshInlineDisplays(filePath) {
+    this.readingAnnotations.invalidate(filePath);
+    this.refreshEditorHighlights(filePath);
+    this.refreshReadingViews(filePath);
+  }
+  refreshReadingViews(filePath) {
+    this.app.workspace.iterateAllLeaves((leaf) => {
+      var _a;
+      const view = leaf.view;
+      if (!(view instanceof import_obsidian6.MarkdownView)) return;
+      if (filePath !== void 0 && ((_a = view.file) == null ? void 0 : _a.path) !== filePath) return;
+      view.previewMode.rerender(true);
+    });
   }
   async loadSettings() {
     const loaded = await this.loadData();
@@ -1043,7 +1282,7 @@ var AnnotationSidebarPlugin = class extends import_obsidian5.Plugin {
   findLeafForFile(file) {
     var _a;
     for (const leaf of this.app.workspace.getLeavesOfType("markdown")) {
-      if (leaf.view instanceof import_obsidian5.MarkdownView && ((_a = leaf.view.file) == null ? void 0 : _a.path) === file.path) return leaf;
+      if (leaf.view instanceof import_obsidian6.MarkdownView && ((_a = leaf.view.file) == null ? void 0 : _a.path) === file.path) return leaf;
     }
     return null;
   }
@@ -1057,7 +1296,7 @@ var AnnotationSidebarPlugin = class extends import_obsidian5.Plugin {
     return expiresAt >= Date.now();
   }
 };
-var ConfirmDeleteModal = class extends import_obsidian5.Modal {
+var ConfirmDeleteModal = class extends import_obsidian6.Modal {
   constructor(plugin, annotation, onConfirm) {
     super(plugin.app);
     __publicField(this, "plugin", plugin);

@@ -49,6 +49,26 @@ CodeMirror 装饰会先随编辑事务映射，因此连续输入时标记不会
 
 侧栏继承 Obsidian `ItemView`，图标使用内置 Lucide 图标。每条批注是独立列表项，包含锚点摘要、编辑框、保存状态、跳转和删除操作。所有正文和批注内容都以文本节点或表单值写入，不拼接 HTML。
 
+## 正文展示
+
+正文展示开关保存在插件设置中，不进入批注 JSON，因此打开或关闭不会触发数据迁移。
+
+编辑模式：
+
+- 选区或位置锚点继续使用原有高亮/标记。
+- 有内容的批注在锚点结束行的行尾插入 CodeMirror `block` widget。
+- widget 只读，点击后调用统一的 `openAnnotationInSidebar(sourcePath, annotationId)`。
+- widget 不存在于 `EditorState.doc`，所以不会参与 Markdown 保存，也不会改变锚点偏移。
+
+阅读模式：
+
+- 通过 `registerMarkdownPostProcessor` 获取渲染区段的 `lineStart`/`lineEnd`。
+- 使用同一条 `annotationDisplayLine` 规则筛选当前区段的批注。
+- 将只读按钮插入当前 Markdown 渲染块之后，并通过 `MarkdownRenderChild` 管理生命周期。
+- 阅读模式没有可靠的字符级 DOM 映射，因此展示粒度是“锚点结束行所属区段”，而不是重新包裹渲染后的单个字符。
+
+两种模式都以纯文本渲染批注正文，保留换行但不执行批注中的 Markdown 或 HTML，避免批注内容改变正文结构或引入额外交互。
+
 ## 文件职责
 
 | 文件 | 职责 |
@@ -57,6 +77,7 @@ CodeMirror 装饰会先随编辑事务映射，因此连续输入时标记不会
 | `src/repository.ts` | Vault 伴随文件 CRUD 与生命周期同步 |
 | `src/annotation-view.ts` | 原生侧栏渲染与编辑交互 |
 | `src/editor-highlights.ts` | CodeMirror 文本高亮和位置标记 |
+| `src/inline-display.ts` | 正文展示行归属、排序和空内容规则 |
+| `src/reading-annotations.ts` | 阅读模式 Markdown 后处理和点击跳转 |
 | `src/settings.ts` | 插件设置 |
 | `src/main.ts` | 插件注册、命令、事件与模块编排 |
-

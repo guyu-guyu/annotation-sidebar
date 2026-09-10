@@ -1,4 +1,4 @@
-import { StateEffect, StateField, type Extension } from "@codemirror/state";
+import { StateEffect, StateField, type Extension, type Range } from "@codemirror/state";
 import {
   Decoration,
   EditorView,
@@ -8,6 +8,11 @@ import {
   type ViewUpdate,
 } from "@codemirror/view";
 import { TFile, editorInfoField } from "obsidian";
+import {
+  annotationDisplayLine,
+  compareAnnotationsForDisplay,
+  shouldDisplayAnnotationContent,
+} from "./inline-display";
 import { resolveAnchor } from "./core";
 import type AnnotationSidebarPlugin from "./main";
 
@@ -90,22 +95,49 @@ export function createAnnotationEditorExtension(plugin: AnnotationSidebarPlugin)
         const document = await plugin.repository.load(file);
         if (generation !== this.generation) return;
         const content = this.view.state.doc.toString();
-        const decorations = document.annotations.map((annotation) => {
-          const anchor = resolveAnchor(content, annotation.anchor);
-          if (anchor.from === anchor.to) {
-            return Decoration.widget({
-              widget: new PositionAnnotationWidget(annotation.id),
-              side: 1,
-            }).range(anchor.from);
-          }
-          return Decoration.mark({
-            class: "annotation-sidebar-highlight",
-            attributes: {
-              "data-annotation-id": annotation.id,
-              title: "此处有批注",
-            },
-          }).range(anchor.from, anchor.to);
-        });
+        const decorations = [...document.annotations]
+          .sort(compareAnnotationsForDisplay)
+          .flatMap((annotation) => {
+            const anchor = resolveAnchor(content, annotation.anchor);
+            const annotationDecorations: Range<Decoration>[] = [];
+            if (anchor.from === anchor.to) {
+              annotationDecorations.push(Decoration.widget({
+                widget: new PositionAnnotationWidget(
+                  annotation.id,
+                  file.path,
+                  () => void plugin.openAnnotationInSidebar(file.path, annotation.id),
+                ),
+                side: 1,
+              }).range(anchor.from));
+            } else {
+              annotationDecorations.push(Decoration.mark({
+                class: "annotation-sidebar-highlight",
+                attributes: {
+                  "data-annotation-id": annotation.id,
+                  title: "此处有批注",
+                },
+              }).range(anchor.from, anchor.to));
+            }
+            if (plugin.settings.showInlineAnnotations
+              && shouldDisplayAnnotationContent(annotation.content)) {
+              const displayLine = Math.min(
+                this.view.state.doc.lines - 1,
+                Math.max(0, annotationDisplayLine(annotation)),
+              );
+              const displayPosition = this.view.state.doc.line(displayLine + 1).to;
+              annotationDecorations.push(Decoration.widget({
+                block: true,
+                side: 1,
+                widget: new AnnotationContentWidget(
+                  annotation.id,
+                  annotation.content,
+                  file.path,
+                  () => void plugin.openAnnotationInSidebar(file.path, annotation.id),
+                ),
+              }).range(displayPosition));
+            }
+            return annotationDecorations;
+          });
         this.applyDecorations(Decoration.set(decorations, true), generation);
       } catch (error) {
         console.error("[Annotation Sidebar] Failed to update editor highlights", error);
@@ -129,12 +161,16 @@ export function refreshAnnotationHighlights(filePath?: string): void {
 }
 
 class PositionAnnotationWidget extends WidgetType {
-  constructor(private readonly annotationId: string) {
+  constructor(
+    private readonly annotationId: string,
+    private readonly filePath: string,
+    private readonly onClick: () => void,
+  ) {
     super();
   }
 
   eq(other: PositionAnnotationWidget): boolean {
-    return other.annotationId === this.annotationId;
+    return other.annotationId === this.annotationId && other.filePath === this.filePath;
   }
 
   toDOM(): HTMLElement {
@@ -143,11 +179,70 @@ class PositionAnnotationWidget extends WidgetType {
     marker.dataset.annotationId = this.annotationId;
     marker.setAttribute("aria-label", "此处有位置批注");
     marker.title = "此处有位置批注";
+    marker.tabIndex = 0;
+    marker.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      this.onClick();
+    });
+    marker.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      this.onClick();
+    });
     return marker;
   }
 
   ignoreEvent(): boolean {
-    return false;
+    return true;
+  }
+}
+
+class AnnotationContentWidget extends WidgetType {
+  constructor(
+    private readonly annotationId: string,
+    private readonly content: string,
+    private readonly filePath: string,
+    private readonly onClick: () => void,
+  ) {
+    super();
+  }
+
+  eq(other: AnnotationContentWidget): boolean {
+    return other.annotationId === this.annotationId
+      && other.content === this.content
+      && other.filePath === this.filePath;
+  }
+
+  toDOM(): HTMLElement {
+    const wrapper = document.createElement("div");
+    wrapper.className = "annotation-sidebar-inline-content";
+    wrapper.dataset.annotationId = this.annotationId;
+    wrapper.tabIndex = 0;
+    wrapper.setAttribute("role", "button");
+    wrapper.setAttribute("aria-label", "打开此批注");
+    wrapper.title = "点击在批注侧栏中打开";
+
+    const body = document.createElement("div");
+    body.className = "annotation-sidebar-inline-content__body";
+    body.textContent = this.content;
+    wrapper.appendChild(body);
+
+    wrapper.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      this.onClick();
+    });
+    wrapper.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      this.onClick();
+    });
+    return wrapper;
+  }
+
+  ignoreEvent(): boolean {
+    return true;
   }
 }
 

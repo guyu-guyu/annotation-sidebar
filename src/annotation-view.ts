@@ -56,9 +56,9 @@ export class AnnotationView extends ItemView {
     return activeElement instanceof HTMLTextAreaElement && this.contentEl.contains(activeElement);
   }
 
-  async refresh(focusAnnotationId?: string): Promise<void> {
+  async refresh(focusAnnotationId?: string, noteOverride?: TFile): Promise<void> {
     const version = ++this.renderVersion;
-    const note = this.plugin.getCurrentNote();
+    const note = noteOverride ?? this.plugin.getCurrentNote();
     this.contentEl.empty();
     this.contentEl.addClass("annotation-sidebar");
 
@@ -144,7 +144,7 @@ export class AnnotationView extends ItemView {
         try {
           this.cancelPendingSave(annotation.id);
           await this.plugin.repository.remove(note, annotation.id);
-          this.plugin.refreshEditorHighlights(note.path);
+          this.plugin.refreshInlineDisplays(note.path);
           await this.refresh();
         } catch (error) {
           this.plugin.reportError("删除批注失败", error);
@@ -231,6 +231,7 @@ export class AnnotationView extends ItemView {
     status.setText("保存中");
     try {
       await this.plugin.repository.updateContent(note, id, value);
+      this.plugin.refreshInlineDisplays(note.path);
       if (this.saveVersions.get(id) === version) status.setText("已保存");
     } catch (error) {
       if (this.saveVersions.get(id) === version) status.setText("保存失败");

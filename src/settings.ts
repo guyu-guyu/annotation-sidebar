@@ -7,6 +7,7 @@ export interface AnnotationSidebarSettings {
   autosaveDelay: number;
   autoRenameCompanion: boolean;
   autoTrashCompanion: boolean;
+  showInlineAnnotations: boolean;
 }
 
 export const DEFAULT_SETTINGS: AnnotationSidebarSettings = {
@@ -14,6 +15,7 @@ export const DEFAULT_SETTINGS: AnnotationSidebarSettings = {
   autosaveDelay: 500,
   autoRenameCompanion: true,
   autoTrashCompanion: true,
+  showInlineAnnotations: false,
 };
 
 export class AnnotationSidebarSettingTab extends PluginSettingTab {
@@ -74,6 +76,17 @@ export class AnnotationSidebarSettingTab extends PluginSettingTab {
         .onChange(async (value) => {
           this.plugin.settings.autoTrashCompanion = value;
           await this.plugin.saveSettings();
+        }));
+
+    new Setting(this.containerEl)
+      .setName("在正文中显示批注")
+      .setDesc("在编辑模式和阅读模式中，在批注位置下方显示只读批注内容。")
+      .addToggle((toggle) => toggle
+        .setValue(this.plugin.settings.showInlineAnnotations)
+        .onChange(async (value) => {
+          this.plugin.settings.showInlineAnnotations = value;
+          await this.plugin.saveSettings();
+          await this.plugin.refreshView();
         }));
   }
 }
