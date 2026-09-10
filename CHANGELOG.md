@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.1 - 2026-09-10
+
+- Add a quick "正文显示" toggle to the annotation sidebar header.
+- Use the normal icon button appearance for sidebar annotation deletion.
+
 ## 0.2.0 - 2026-09-10
 
 - Add an optional read-only annotation layer in Markdown editing and reading modes.

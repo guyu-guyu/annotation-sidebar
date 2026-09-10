@@ -95,6 +95,22 @@ export class AnnotationView extends ItemView {
     });
 
     const actions = header.createDiv({ cls: "annotation-sidebar__header-actions" });
+    const inlineToggle = actions.createEl("label", {
+      cls: "annotation-sidebar__inline-toggle",
+      attr: { title: "在编辑模式和阅读模式中显示批注内容" },
+    });
+    const inlineCheckbox = inlineToggle.createEl("input", {
+      attr: {
+        type: "checkbox",
+        "aria-label": "在正文中显示批注",
+      },
+    });
+    inlineCheckbox.checked = this.plugin.settings.showInlineAnnotations;
+    inlineToggle.createSpan({ text: "正文显示" });
+    setTooltip(inlineToggle, "在编辑模式和阅读模式中显示批注内容");
+    inlineCheckbox.addEventListener("change", () => {
+      void this.plugin.setInlineAnnotationsVisible(inlineCheckbox.checked);
+    });
     actions.appendChild(this.createIconButton("plus", "在当前选区或光标处添加批注", () => {
       void this.plugin.addAnnotationAtCurrentPosition();
     }));
@@ -150,7 +166,7 @@ export class AnnotationView extends ItemView {
           this.plugin.reportError("删除批注失败", error);
         }
       });
-    }, "mod-warning"));
+    }));
 
     if (annotation.anchor.kind === "selection") {
       card.createEl("blockquote", {

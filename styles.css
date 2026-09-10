@@ -39,6 +39,29 @@
   gap: 2px;
 }
 
+.annotation-sidebar__inline-toggle {
+  align-items: center;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: var(--font-ui-smaller);
+  gap: 4px;
+  line-height: 1;
+  padding: 4px 2px;
+  white-space: nowrap;
+}
+
+.annotation-sidebar__inline-toggle:hover {
+  color: var(--text-normal);
+}
+
+.annotation-sidebar__inline-toggle input {
+  accent-color: var(--interactive-accent);
+  cursor: pointer;
+  margin: 0;
+}
+
 .annotation-sidebar__icon-button {
   align-items: center;
   display: inline-flex;

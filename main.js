@@ -374,6 +374,22 @@ var AnnotationView = class extends import_obsidian.ItemView {
       attr: note ? { title: note.path } : void 0
     });
     const actions = header.createDiv({ cls: "annotation-sidebar__header-actions" });
+    const inlineToggle = actions.createEl("label", {
+      cls: "annotation-sidebar__inline-toggle",
+      attr: { title: "\u5728\u7F16\u8F91\u6A21\u5F0F\u548C\u9605\u8BFB\u6A21\u5F0F\u4E2D\u663E\u793A\u6279\u6CE8\u5185\u5BB9" }
+    });
+    const inlineCheckbox = inlineToggle.createEl("input", {
+      attr: {
+        type: "checkbox",
+        "aria-label": "\u5728\u6B63\u6587\u4E2D\u663E\u793A\u6279\u6CE8"
+      }
+    });
+    inlineCheckbox.checked = this.plugin.settings.showInlineAnnotations;
+    inlineToggle.createSpan({ text: "\u6B63\u6587\u663E\u793A" });
+    (0, import_obsidian.setTooltip)(inlineToggle, "\u5728\u7F16\u8F91\u6A21\u5F0F\u548C\u9605\u8BFB\u6A21\u5F0F\u4E2D\u663E\u793A\u6279\u6CE8\u5185\u5BB9");
+    inlineCheckbox.addEventListener("change", () => {
+      void this.plugin.setInlineAnnotationsVisible(inlineCheckbox.checked);
+    });
     actions.appendChild(this.createIconButton("plus", "\u5728\u5F53\u524D\u9009\u533A\u6216\u5149\u6807\u5904\u6DFB\u52A0\u6279\u6CE8", () => {
       void this.plugin.addAnnotationAtCurrentPosition();
     }));
@@ -423,7 +439,7 @@ var AnnotationView = class extends import_obsidian.ItemView {
           this.plugin.reportError("\u5220\u9664\u6279\u6CE8\u5931\u8D25", error);
         }
       });
-    }, "mod-warning"));
+    }));
     if (annotation.anchor.kind === "selection") {
       card.createEl("blockquote", {
         cls: "annotation-sidebar__quote",
@@ -1238,6 +1254,12 @@ var AnnotationSidebarPlugin = class extends import_obsidian6.Plugin {
   }
   async saveSettings() {
     await this.saveData(this.settings);
+  }
+  async setInlineAnnotationsVisible(visible) {
+    if (this.settings.showInlineAnnotations === visible) return;
+    this.settings.showInlineAnnotations = visible;
+    await this.saveSettings();
+    await this.refreshView();
   }
   reportError(context, error) {
     const message = error instanceof Error ? error.message : String(error);

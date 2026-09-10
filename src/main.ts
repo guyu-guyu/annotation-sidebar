@@ -250,6 +250,13 @@ export default class AnnotationSidebarPlugin extends Plugin {
     await this.saveData(this.settings);
   }
 
+  async setInlineAnnotationsVisible(visible: boolean): Promise<void> {
+    if (this.settings.showInlineAnnotations === visible) return;
+    this.settings.showInlineAnnotations = visible;
+    await this.saveSettings();
+    await this.refreshView();
+  }
+
   reportError(context: string, error: unknown): void {
     const message = error instanceof Error ? error.message : String(error);
     console.error(`[Annotation Sidebar] ${context}`, error);
