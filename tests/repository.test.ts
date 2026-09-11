@@ -119,6 +119,27 @@ describe("AnnotationRepository", () => {
     expect((await repository.load(newNote)).source).toBe("Archive/New.md");
   });
 
+  it("replaces an annotation anchor without changing its content or identity", async () => {
+    const note = makeFile("Note.md");
+    const original = createAnnotation(
+      createAnchor("first target", 0, 5),
+      "2026-09-09T00:00:00.000Z",
+      "a1",
+    );
+    original.content = "keep this comment";
+    await repository.add(note, original);
+
+    const replacement = createAnchor("second target", 7, 13);
+    await repository.updateAnchor(note, original.id, replacement);
+
+    const relocated = (await repository.load(note)).annotations[0];
+    expect(relocated?.id).toBe("a1");
+    expect(relocated?.content).toBe("keep this comment");
+    expect(relocated?.createdAt).toBe("2026-09-09T00:00:00.000Z");
+    expect(relocated?.anchor).toEqual(replacement);
+    expect(relocated?.updatedAt).not.toBe(original.updatedAt);
+  });
+
   it("uses the host trash behavior when a source note is deleted", async () => {
     const note = makeFile("Note.md");
     await repository.add(note, createAnnotation(createAnchor("text", 0), undefined, "a1"));
@@ -141,6 +162,14 @@ describe("AnnotationRepository", () => {
     const note = makeFile("Note.md");
 
     await expect(repository.updateContent(note, "deleted", "late content"))
+      .rejects.toThrow("批注不存在或已被删除");
+    expect(vault.files.has("Note.annotations.json")).toBe(false);
+  });
+
+  it("does not recreate a deleted annotation during relocation", async () => {
+    const note = makeFile("Note.md");
+
+    await expect(repository.updateAnchor(note, "deleted", createAnchor("text", 0)))
       .rejects.toThrow("批注不存在或已被删除");
     expect(vault.files.has("Note.annotations.json")).toBe(false);
   });

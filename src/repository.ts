@@ -6,7 +6,7 @@ import {
   serializeAnnotationDocument,
   sourcePathForAnnotation,
 } from "./core";
-import type { Annotation, AnnotationDocument } from "./types";
+import type { Annotation, AnnotationAnchor, AnnotationDocument } from "./types";
 
 type DocumentUpdater = (document: AnnotationDocument) => AnnotationDocument;
 
@@ -57,6 +57,25 @@ export class AnnotationRepository {
         ...document,
         annotations: document.annotations.map((annotation) => annotation.id === id
           ? { ...annotation, content, updatedAt: now }
+          : annotation),
+      };
+    });
+  }
+
+  async updateAnchor(
+    note: TFile,
+    id: string,
+    anchor: AnnotationAnchor,
+  ): Promise<AnnotationDocument> {
+    const now = new Date().toISOString();
+    return this.mutate(note, (document) => {
+      if (!document.annotations.some((annotation) => annotation.id === id)) {
+        throw new Error(`批注不存在或已被删除：${id}`);
+      }
+      return {
+        ...document,
+        annotations: document.annotations.map((annotation) => annotation.id === id
+          ? { ...annotation, anchor, updatedAt: now }
           : annotation),
       };
     });

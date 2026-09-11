@@ -9,154 +9,206 @@ import {
 } from "@codemirror/view";
 import { TFile, editorInfoField } from "obsidian";
 import {
-  annotationDisplayLine,
-  compareAnnotationsForDisplay,
   shouldDisplayAnnotationContent,
 } from "./inline-display";
 import { resolveAnchor } from "./core";
+import { inlineWidgetPlacement, mapResolvedAnchor } from "./editor-positions";
 import type AnnotationSidebarPlugin from "./main";
+import type { Annotation, ResolvedAnchor } from "./types";
 
-const setAnnotationsEffect = StateEffect.define<DecorationSet>();
+interface LoadedAnnotations {
+  annotations: Annotation[];
+  filePath: string | null;
+  preservePositions: boolean;
+}
 
-const annotationField = StateField.define<DecorationSet>({
-  create: () => Decoration.none,
-  update: (decorations, transaction) => {
-    let next = decorations.map(transaction.changes);
-    for (const effect of transaction.effects) {
-      if (effect.is(setAnnotationsEffect)) next = effect.value;
-    }
-    return next;
-  },
-  provide: (field) => EditorView.decorations.from(field),
-});
+interface LiveAnnotation {
+  annotation: Annotation;
+  anchor: ResolvedAnchor;
+}
+
+interface AnnotationEditorState {
+  annotations: LiveAnnotation[];
+  decorations: DecorationSet;
+  filePath: string | null;
+}
+
+const setAnnotationsEffect = StateEffect.define<LoadedAnnotations>();
 
 interface HighlightController {
   filePath: string | null;
-  reload(): void;
+  reload(preservePositions?: boolean): void;
 }
 
 const controllers = new Set<HighlightController>();
 
 export function createAnnotationEditorExtension(plugin: AnnotationSidebarPlugin): Extension {
+  const annotationField = StateField.define<AnnotationEditorState>({
+    create: () => emptyAnnotationState(null),
+    update: (value, transaction) => {
+      let filePath = value.filePath;
+      let annotations = transaction.docChanged
+        ? value.annotations.map(({ annotation, anchor }) => ({
+          annotation,
+          anchor: mapResolvedAnchor(anchor, annotation.anchor.kind, transaction.changes),
+        }))
+        : value.annotations;
+      let rebuild = transaction.docChanged;
+
+      for (const effect of transaction.effects) {
+        if (!effect.is(setAnnotationsEffect)) continue;
+        const loaded = effect.value;
+        const previousById = loaded.preservePositions && filePath === loaded.filePath
+          ? new Map(annotations.map((item) => [item.annotation.id, item.anchor]))
+          : new Map<string, ResolvedAnchor>();
+        const content = transaction.newDoc.toString();
+        filePath = loaded.filePath;
+        annotations = loaded.annotations.map((annotation) => ({
+          annotation,
+          anchor: previousById.get(annotation.id) ?? resolveAnchor(content, annotation.anchor),
+        }));
+        rebuild = true;
+      }
+
+      if (!rebuild) return value;
+      return {
+        annotations,
+        decorations: buildDecorations(plugin, transaction.newDoc, filePath, annotations),
+        filePath,
+      };
+    },
+    provide: (field) => EditorView.decorations.from(field, (value) => value.decorations),
+  });
+
   const highlighter = ViewPlugin.fromClass(class implements HighlightController {
     filePath: string | null = null;
     private generation = 0;
-    private reloadTimer: number | null = null;
     private isDestroyed = false;
 
     constructor(private readonly view: EditorView) {
       controllers.add(this);
       this.filePath = getEditorFile(this.view)?.path ?? null;
-      this.reload();
+      void this.loadAnnotations(false);
     }
 
     update(update: ViewUpdate): void {
       const nextPath = getEditorFile(update.view)?.path ?? null;
       if (nextPath !== this.filePath) {
         this.filePath = nextPath;
-        this.reload();
-        return;
+        void this.loadAnnotations(false);
       }
-      if (update.docChanged) this.scheduleReload();
     }
 
-    reload(): void {
-      if (this.reloadTimer !== null) {
-        window.clearTimeout(this.reloadTimer);
-        this.reloadTimer = null;
-      }
-      void this.loadDecorations();
+    reload(preservePositions = true): void {
+      void this.loadAnnotations(preservePositions);
     }
 
     destroy(): void {
       this.isDestroyed = true;
       this.generation += 1;
-      if (this.reloadTimer !== null) window.clearTimeout(this.reloadTimer);
       controllers.delete(this);
     }
 
-    private scheduleReload(): void {
-      if (this.reloadTimer !== null) window.clearTimeout(this.reloadTimer);
-      this.reloadTimer = window.setTimeout(() => {
-        this.reloadTimer = null;
-        void this.loadDecorations();
-      }, 350);
-    }
-
-    private async loadDecorations(): Promise<void> {
+    private async loadAnnotations(preservePositions: boolean): Promise<void> {
       const generation = ++this.generation;
       const file = getEditorFile(this.view);
       if (!(file instanceof TFile) || file.extension.toLowerCase() !== "md") {
-        this.applyDecorations(Decoration.none, generation);
+        this.applyAnnotations({ annotations: [], filePath: null, preservePositions: false }, generation);
         return;
       }
 
       try {
         const document = await plugin.repository.load(file);
         if (generation !== this.generation) return;
-        const content = this.view.state.doc.toString();
-        const decorations = [...document.annotations]
-          .sort(compareAnnotationsForDisplay)
-          .flatMap((annotation) => {
-            const anchor = resolveAnchor(content, annotation.anchor);
-            const annotationDecorations: Range<Decoration>[] = [];
-            if (anchor.from === anchor.to) {
-              annotationDecorations.push(Decoration.widget({
-                widget: new PositionAnnotationWidget(
-                  annotation.id,
-                  file.path,
-                  () => void plugin.openAnnotationInSidebar(file.path, annotation.id),
-                ),
-                side: 1,
-              }).range(anchor.from));
-            } else {
-              annotationDecorations.push(Decoration.mark({
-                class: "annotation-sidebar-highlight",
-                attributes: {
-                  "data-annotation-id": annotation.id,
-                  title: "此处有批注",
-                },
-              }).range(anchor.from, anchor.to));
-            }
-            if (plugin.settings.showInlineAnnotations
-              && shouldDisplayAnnotationContent(annotation.content)) {
-              const displayLine = Math.min(
-                this.view.state.doc.lines - 1,
-                Math.max(0, annotationDisplayLine(annotation)),
-              );
-              const displayPosition = this.view.state.doc.line(displayLine + 1).to;
-              annotationDecorations.push(Decoration.widget({
-                block: true,
-                side: 1,
-                widget: new AnnotationContentWidget(
-                  annotation.id,
-                  annotation.content,
-                  file.path,
-                  () => void plugin.openAnnotationInSidebar(file.path, annotation.id),
-                ),
-              }).range(displayPosition));
-            }
-            return annotationDecorations;
-          });
-        this.applyDecorations(Decoration.set(decorations, true), generation);
+        this.applyAnnotations({
+          annotations: document.annotations,
+          filePath: file.path,
+          preservePositions,
+        }, generation);
       } catch (error) {
         console.error("[Annotation Sidebar] Failed to update editor highlights", error);
-        this.applyDecorations(Decoration.none, generation);
+        this.applyAnnotations({
+          annotations: [],
+          filePath: file.path,
+          preservePositions: false,
+        }, generation);
       }
     }
 
-    private applyDecorations(decorations: DecorationSet, generation: number): void {
+    private applyAnnotations(loaded: LoadedAnnotations, generation: number): void {
       if (generation !== this.generation || this.isDestroyed) return;
-      this.view.dispatch({ effects: setAnnotationsEffect.of(decorations) });
+      this.view.dispatch({ effects: setAnnotationsEffect.of(loaded) });
     }
   });
 
   return [annotationField, highlighter];
 }
 
-export function refreshAnnotationHighlights(filePath?: string): void {
+function emptyAnnotationState(filePath: string | null): AnnotationEditorState {
+  return { annotations: [], decorations: Decoration.none, filePath };
+}
+
+function buildDecorations(
+  plugin: AnnotationSidebarPlugin,
+  doc: import("@codemirror/state").Text,
+  filePath: string | null,
+  liveAnnotations: LiveAnnotation[],
+): DecorationSet {
+  if (filePath === null) return Decoration.none;
+
+  const decorations = [...liveAnnotations]
+    .sort(compareLiveAnnotations)
+    .flatMap(({ annotation, anchor }) => {
+      const annotationDecorations: Range<Decoration>[] = [];
+      if (anchor.from === anchor.to) {
+        annotationDecorations.push(Decoration.widget({
+          widget: new PositionAnnotationWidget(
+            annotation.id,
+            filePath,
+            () => void plugin.openAnnotationInSidebar(filePath, annotation.id),
+          ),
+          side: 1,
+        }).range(anchor.from));
+      } else {
+        annotationDecorations.push(Decoration.mark({
+          class: "annotation-sidebar-highlight",
+          attributes: {
+            "data-annotation-id": annotation.id,
+            title: "此处有批注",
+          },
+        }).range(anchor.from, anchor.to));
+      }
+
+      if (plugin.settings.showInlineAnnotations
+        && shouldDisplayAnnotationContent(annotation.content)) {
+        const placement = inlineWidgetPlacement(doc, anchor.to);
+        annotationDecorations.push(Decoration.widget({
+          block: true,
+          side: placement.side,
+          widget: new AnnotationContentWidget(
+            annotation.id,
+            annotation.content,
+            filePath,
+            () => void plugin.openAnnotationInSidebar(filePath, annotation.id),
+          ),
+        }).range(placement.position));
+      }
+      return annotationDecorations;
+    });
+  return Decoration.set(decorations, true);
+}
+
+function compareLiveAnnotations(left: LiveAnnotation, right: LiveAnnotation): number {
+  return left.anchor.to - right.anchor.to
+    || left.annotation.createdAt.localeCompare(right.annotation.createdAt)
+    || left.annotation.id.localeCompare(right.annotation.id);
+}
+
+export function refreshAnnotationHighlights(filePath?: string, preservePositions = true): void {
   for (const controller of controllers) {
-    if (filePath === undefined || controller.filePath === filePath) controller.reload();
+    if (filePath === undefined || controller.filePath === filePath) {
+      controller.reload(preservePositions);
+    }
   }
 }
 

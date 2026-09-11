@@ -84,9 +84,7 @@ export class AnnotationSidebarSettingTab extends PluginSettingTab {
       .addToggle((toggle) => toggle
         .setValue(this.plugin.settings.showInlineAnnotations)
         .onChange(async (value) => {
-          this.plugin.settings.showInlineAnnotations = value;
-          await this.plugin.saveSettings();
-          await this.plugin.refreshView();
+          await this.plugin.setInlineAnnotationsVisible(value);
         }));
   }
 }

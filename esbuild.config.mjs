@@ -1,7 +1,19 @@
 import esbuild from "esbuild";
+import { copyFile, mkdir, rm } from "node:fs/promises";
+import path from "node:path";
 import process from "node:process";
+import { fileURLToPath } from "node:url";
 
 const production = process.argv[2] === "production";
+const projectRoot = fileURLToPath(new URL(".", import.meta.url));
+const outputDirectory = path.join(projectRoot, "dist");
+
+await rm(outputDirectory, { recursive: true, force: true });
+await mkdir(outputDirectory, { recursive: true });
+await Promise.all(["manifest.json", "styles.css"].map((fileName) => copyFile(
+  path.join(projectRoot, fileName),
+  path.join(outputDirectory, fileName),
+)));
 
 const context = await esbuild.context({
   banner: {
@@ -26,7 +38,7 @@ const context = await esbuild.context({
   ],
   format: "cjs",
   logLevel: "info",
-  outfile: "main.js",
+  outfile: path.join(outputDirectory, "main.js"),
   platform: "browser",
   sourcemap: production ? false : "inline",
   target: "es2018",
@@ -39,4 +51,3 @@ if (production) {
 } else {
   await context.watch();
 }
-

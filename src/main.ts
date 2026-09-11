@@ -114,7 +114,7 @@ export default class AnnotationSidebarPlugin extends Plugin {
           this.refreshInlineDisplays(sourcePath);
           this.consumeOwnWrite(file.path);
         }
-        void this.refreshOpenView();
+        void this.refreshOpenView(true);
       }
     }));
 
@@ -148,6 +148,12 @@ export default class AnnotationSidebarPlugin extends Plugin {
     return this.lastMarkdownView?.file ?? null;
   }
 
+  async readNoteContent(note: TFile): Promise<string> {
+    const openLeaf = this.findLeafForFile(note);
+    if (openLeaf?.view instanceof MarkdownView) return openLeaf.view.editor.getValue();
+    return this.app.vault.cachedRead(note);
+  }
+
   async addAnnotationAtCurrentPosition(): Promise<void> {
     const view = this.app.workspace.getActiveViewOfType(MarkdownView) ?? this.lastMarkdownView;
     if (!view?.file) {
@@ -175,6 +181,28 @@ export default class AnnotationSidebarPlugin extends Plugin {
       await view?.refresh(annotation.id);
     } catch (error) {
       this.reportError("添加批注失败", error);
+    }
+  }
+
+  async relocateAnnotation(note: TFile, annotationId: string): Promise<void> {
+    const view = this.findEditorViewForFile(note);
+    if (view === null) {
+      new Notice("请先在编辑模式中打开这篇笔记，再重定位批注");
+      return;
+    }
+
+    const content = view.editor.getValue();
+    const from = view.editor.posToOffset(view.editor.getCursor("from"));
+    const to = view.editor.posToOffset(view.editor.getCursor("to"));
+    const anchor = createAnchor(content, from, to);
+
+    try {
+      await this.repository.updateAnchor(note, annotationId, anchor);
+      this.refreshInlineDisplays(note.path, false);
+      await this.getOpenView()?.refresh(annotationId, note, true);
+      new Notice(anchor.kind === "selection" ? "批注已重定位到选中内容" : "批注已重定位到光标位置");
+    } catch (error) {
+      this.reportError("重定位批注失败", error);
     }
   }
 
@@ -240,7 +268,7 @@ export default class AnnotationSidebarPlugin extends Plugin {
   }
 
   async refreshView(): Promise<void> {
-    await this.refreshOpenView();
+    await this.refreshOpenView(true);
     this.readingAnnotations.invalidate();
     this.refreshEditorHighlights();
     this.refreshReadingViews();
@@ -251,10 +279,16 @@ export default class AnnotationSidebarPlugin extends Plugin {
   }
 
   async setInlineAnnotationsVisible(visible: boolean): Promise<void> {
-    if (this.settings.showInlineAnnotations === visible) return;
+    if (this.settings.showInlineAnnotations === visible) {
+      this.getOpenView()?.syncInlineDisplayToggle(visible);
+      return;
+    }
     this.settings.showInlineAnnotations = visible;
     await this.saveSettings();
-    await this.refreshView();
+    this.getOpenView()?.syncInlineDisplayToggle(visible);
+    this.readingAnnotations.invalidate();
+    this.refreshEditorHighlights();
+    this.refreshReadingViews();
   }
 
   reportError(context: string, error: unknown): void {
@@ -263,13 +297,13 @@ export default class AnnotationSidebarPlugin extends Plugin {
     new Notice(`${context}：${message}`);
   }
 
-  refreshEditorHighlights(filePath?: string): void {
-    refreshAnnotationHighlights(filePath);
+  refreshEditorHighlights(filePath?: string, preservePositions = true): void {
+    refreshAnnotationHighlights(filePath, preservePositions);
   }
 
-  refreshInlineDisplays(filePath: string): void {
+  refreshInlineDisplays(filePath: string, preserveEditorPositions = true): void {
     this.readingAnnotations.invalidate(filePath);
-    this.refreshEditorHighlights(filePath);
+    this.refreshEditorHighlights(filePath, preserveEditorPositions);
     this.refreshReadingViews(filePath);
   }
 
@@ -298,14 +332,29 @@ export default class AnnotationSidebarPlugin extends Plugin {
     return leaf?.view instanceof AnnotationView ? leaf.view : null;
   }
 
-  private async refreshOpenView(): Promise<void> {
+  private async refreshOpenView(force = false): Promise<void> {
     const view = this.getOpenView();
-    if (view && !view.isEditing()) await view.refresh();
+    if (!view || view.isEditing()) return;
+    const notePath = this.getCurrentNote()?.path ?? null;
+    if (!force && view.isShowingNote(notePath)) return;
+    await view.refresh();
   }
 
   private findLeafForFile(file: TFile): WorkspaceLeaf | null {
     for (const leaf of this.app.workspace.getLeavesOfType("markdown")) {
       if (leaf.view instanceof MarkdownView && leaf.view.file?.path === file.path) return leaf;
+    }
+    return null;
+  }
+
+  private findEditorViewForFile(file: TFile): MarkdownView | null {
+    for (const leaf of this.app.workspace.getLeavesOfType("markdown")) {
+      const view = leaf.view;
+      if (view instanceof MarkdownView
+        && view.file?.path === file.path
+        && view.getMode() === "source") {
+        return view;
+      }
     }
     return null;
   }

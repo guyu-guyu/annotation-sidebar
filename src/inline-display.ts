@@ -1,8 +1,14 @@
-import type { Annotation } from "./types";
+import { resolveAnchor } from "./core";
+import type { Annotation, ResolvedAnchor } from "./types";
 
 export interface MarkdownSectionRange {
   lineStart: number;
   lineEnd: number;
+}
+
+export interface ResolvedAnnotationForDisplay {
+  annotation: Annotation;
+  anchor: ResolvedAnchor;
 }
 
 /**
@@ -33,3 +39,17 @@ export function compareAnnotationsForDisplay(left: Annotation, right: Annotation
   return left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id);
 }
 
+export function resolveAnnotationsInDocumentOrder(
+  content: string,
+  annotations: readonly Annotation[],
+): ResolvedAnnotationForDisplay[] {
+  return annotations
+    .map((annotation) => ({
+      annotation,
+      anchor: resolveAnchor(content, annotation.anchor),
+    }))
+    .sort((left, right) => left.anchor.from - right.anchor.from
+      || left.anchor.to - right.anchor.to
+      || left.annotation.createdAt.localeCompare(right.annotation.createdAt)
+      || left.annotation.id.localeCompare(right.annotation.id));
+}

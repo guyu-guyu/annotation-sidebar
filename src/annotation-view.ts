@@ -6,14 +6,16 @@ import {
   setIcon,
   setTooltip,
 } from "obsidian";
-import { AnnotationFormatError } from "./core";
+import { AnnotationFormatError, offsetToTextPosition } from "./core";
+import { resolveAnnotationsInDocumentOrder } from "./inline-display";
 import type AnnotationSidebarPlugin from "./main";
-import type { Annotation, AnnotationDocument } from "./types";
+import type { Annotation, AnnotationDocument, ResolvedAnchor } from "./types";
 
 export const ANNOTATION_VIEW_TYPE = "annotation-sidebar-view";
 
 export class AnnotationView extends ItemView {
   private renderVersion = 0;
+  private displayedNotePath: string | null | undefined;
   private saveTimers = new Map<string, number>();
   private saveVersions = new Map<string, number>();
   private pendingSaves = new Map<string, { note: TFile; value: string; status: HTMLElement }>();
@@ -56,25 +58,52 @@ export class AnnotationView extends ItemView {
     return activeElement instanceof HTMLTextAreaElement && this.contentEl.contains(activeElement);
   }
 
-  async refresh(focusAnnotationId?: string, noteOverride?: TFile): Promise<void> {
+  syncInlineDisplayToggle(visible: boolean): void {
+    const checkbox = this.contentEl.querySelector<HTMLInputElement>(
+      ".annotation-sidebar__inline-toggle input[type='checkbox']",
+    );
+    if (checkbox) checkbox.checked = visible;
+  }
+
+  isShowingNote(notePath: string | null): boolean {
+    return this.displayedNotePath === notePath;
+  }
+
+  async refresh(
+    focusAnnotationId?: string,
+    noteOverride?: TFile,
+    preserveContent = false,
+  ): Promise<void> {
     const version = ++this.renderVersion;
     const note = noteOverride ?? this.plugin.getCurrentNote();
-    this.contentEl.empty();
-    this.contentEl.addClass("annotation-sidebar");
+    this.displayedNotePath = note?.path ?? null;
 
-    this.renderHeader(note);
+    if (!preserveContent) {
+      this.contentEl.empty();
+      this.contentEl.addClass("annotation-sidebar");
+      this.renderHeader(note);
+    }
+
     if (note === null) {
+      if (preserveContent) {
+        this.contentEl.empty();
+        this.contentEl.addClass("annotation-sidebar");
+        this.renderHeader(note);
+      }
       this.renderEmptyState("打开一篇 Markdown 笔记后即可添加批注。", "file-text");
       return;
     }
 
-    this.renderLoading();
+    if (!preserveContent) this.renderLoading();
     try {
-      const annotationDocument = await this.plugin.repository.load(note);
+      const [annotationDocument, content] = await Promise.all([
+        this.plugin.repository.load(note),
+        this.plugin.readNoteContent(note),
+      ]);
       if (version !== this.renderVersion) return;
       this.contentEl.empty();
       this.renderHeader(note, annotationDocument.annotations.length);
-      this.renderDocument(note, annotationDocument);
+      this.renderDocument(note, annotationDocument, content);
       if (focusAnnotationId) this.focusAnnotation(focusAnnotationId);
     } catch (error) {
       if (version !== this.renderVersion) return;
@@ -119,7 +148,7 @@ export class AnnotationView extends ItemView {
     }));
   }
 
-  private renderDocument(note: TFile, document: AnnotationDocument): void {
+  private renderDocument(note: TFile, document: AnnotationDocument, content: string): void {
     if (document.annotations.length === 0) {
       const empty = this.renderEmptyState("当前笔记还没有批注。", "message-square-dashed");
       const button = empty.createEl("button", {
@@ -131,27 +160,40 @@ export class AnnotationView extends ItemView {
     }
 
     const list = this.contentEl.createDiv({ cls: "annotation-sidebar__list" });
-    for (const annotation of document.annotations) {
-      this.renderAnnotation(list, note, annotation);
+    for (const { annotation, anchor } of resolveAnnotationsInDocumentOrder(
+      content,
+      document.annotations,
+    )) {
+      this.renderAnnotation(list, note, annotation, anchor, content);
     }
   }
 
-  private renderAnnotation(container: HTMLElement, note: TFile, annotation: Annotation): void {
+  private renderAnnotation(
+    container: HTMLElement,
+    note: TFile,
+    annotation: Annotation,
+    resolvedAnchor: ResolvedAnchor,
+    content: string,
+  ): void {
     const card = container.createDiv({
       cls: "annotation-sidebar__item",
       attr: { "data-annotation-id": annotation.id },
     });
     const itemHeader = card.createDiv({ cls: "annotation-sidebar__item-header" });
+    const position = offsetToTextPosition(content, resolvedAnchor.from);
     const anchorButton = itemHeader.createEl("button", {
       cls: "annotation-sidebar__anchor",
       text: annotation.anchor.kind === "selection"
-        ? `第 ${annotation.anchor.from.line + 1} 行`
-        : `第 ${annotation.anchor.from.line + 1} 行，第 ${annotation.anchor.from.ch + 1} 列`,
+        ? `第 ${position.line + 1} 行`
+        : `第 ${position.line + 1} 行，第 ${position.ch + 1} 列`,
       attr: { title: "跳转到正文位置" },
     });
     anchorButton.addEventListener("click", () => void this.plugin.jumpToAnnotation(note, annotation));
 
     const itemActions = itemHeader.createDiv({ cls: "annotation-sidebar__item-actions" });
+    itemActions.appendChild(this.createIconButton("crosshair", "重定位批注到当前选区或光标", () => {
+      void this.plugin.relocateAnnotation(note, annotation.id);
+    }));
     itemActions.appendChild(this.createIconButton("locate-fixed", "跳转到正文位置", () => {
       void this.plugin.jumpToAnnotation(note, annotation);
     }));
