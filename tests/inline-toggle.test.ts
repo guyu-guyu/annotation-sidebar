@@ -34,7 +34,7 @@ vi.mock("../src/settings", () => ({
   },
 }));
 
-import { MarkdownView } from "obsidian";
+import { MarkdownView, TFile } from "obsidian";
 import AnnotationSidebarPlugin from "../src/main";
 
 describe("inline display toggle", () => {
@@ -44,6 +44,7 @@ describe("inline display toggle", () => {
     isShowingNote: ReturnType<typeof vi.fn>;
     refresh: ReturnType<typeof vi.fn>;
     syncInlineDisplayToggle: ReturnType<typeof vi.fn>;
+    syncAnnotationColor: ReturnType<typeof vi.fn>;
   };
   let invalidateReading: ReturnType<typeof vi.fn>;
   let refreshEditor: ReturnType<typeof vi.fn>;
@@ -55,6 +56,7 @@ describe("inline display toggle", () => {
       isShowingNote: vi.fn(() => true),
       refresh: vi.fn(),
       syncInlineDisplayToggle: vi.fn(),
+      syncAnnotationColor: vi.fn(),
     };
     invalidateReading = vi.fn();
     refreshEditor = vi.fn();
@@ -88,6 +90,23 @@ describe("inline display toggle", () => {
     expect(invalidateReading).not.toHaveBeenCalled();
     expect(refreshEditor).not.toHaveBeenCalled();
     expect(refreshReading).not.toHaveBeenCalled();
+  });
+
+  it("updates annotation color and synchronizes inline renderers without rebuilding sidebar", async () => {
+    const updateColor = vi.fn().mockResolvedValue(undefined);
+    const refreshInlineDisplays = vi.fn();
+    const note = { path: "Note.md" };
+    Object.assign(plugin, {
+      repository: { updateColor },
+      refreshInlineDisplays,
+    });
+
+    await plugin.setAnnotationColor(note as never, "a1", "green");
+
+    expect(updateColor).toHaveBeenCalledWith(note, "a1", "green");
+    expect(refreshInlineDisplays).toHaveBeenCalledWith("Note.md");
+    expect(sidebar.syncAnnotationColor).toHaveBeenCalledWith("a1", "green");
+    expect(sidebar.refresh).not.toHaveBeenCalled();
   });
 
   it("does not rebuild the sidebar when focus moves to the note it already shows", async () => {
@@ -144,5 +163,26 @@ describe("inline display toggle", () => {
     }));
     expect(refreshInlineDisplays).toHaveBeenCalledWith("Note.md", false);
     expect(sidebar.refresh).toHaveBeenCalledWith("a1", note, true);
+  });
+
+  it("uses the existing sidebar entry when opening an inline annotation", async () => {
+    const TFileConstructor = TFile as unknown as new () => TFile;
+    const source = new TFileConstructor();
+    Object.assign(source, { path: "Note.md", extension: "md" });
+    const MarkdownViewConstructor = MarkdownView as unknown as new () => MarkdownView;
+    const markdownView = new MarkdownViewConstructor();
+    Object.assign(markdownView, { file: source });
+    const showAnnotation = vi.fn();
+    const openSidebar = { showAnnotation };
+    Object.assign(plugin, {
+      app: { vault: { getAbstractFileByPath: vi.fn(() => source) } },
+      findLeafForFile: vi.fn(() => ({ view: markdownView })),
+      activateView: vi.fn(async () => openSidebar),
+    });
+
+    await plugin.openAnnotationInSidebar("Note.md", "a1");
+
+    expect(showAnnotation).toHaveBeenCalledWith(source, "a1");
+    expect(sidebar.refresh).not.toHaveBeenCalled();
   });
 });

@@ -85,8 +85,18 @@
   padding: 10px;
 }
 
+.annotation-sidebar__item.annotation-sidebar-color-yellow,
+.annotation-sidebar__item.annotation-sidebar-color-red,
+.annotation-sidebar__item.annotation-sidebar-color-blue,
+.annotation-sidebar__item.annotation-sidebar-color-green {
+  background: var(--annotation-sidebar-color-bg);
+  border-left: 3px solid var(--annotation-sidebar-color);
+}
+
 .annotation-sidebar__item:focus-within {
-  border-color: var(--interactive-accent);
+  border-bottom-color: var(--interactive-accent);
+  border-right-color: var(--interactive-accent);
+  border-top-color: var(--interactive-accent);
 }
 
 .annotation-sidebar__item-header,
@@ -94,6 +104,40 @@
   align-items: center;
   display: flex;
   justify-content: space-between;
+}
+
+.annotation-sidebar__item-header {
+  gap: 6px;
+}
+
+.annotation-sidebar__color-picker {
+  align-items: center;
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 3px;
+  margin-left: auto;
+}
+
+.annotation-sidebar__color-option {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 50%;
+  box-shadow: none;
+  height: 15px;
+  min-height: 15px;
+  min-width: 15px;
+  padding: 0;
+  width: 15px;
+}
+
+.annotation-sidebar__color-option:hover,
+.annotation-sidebar__color-option:focus-visible,
+.annotation-sidebar__color-option.is-selected {
+  border-color: var(--text-normal);
+  box-shadow: 0 0 0 1px var(--background-primary);
+}
+
+.annotation-sidebar__color-option.is-selected {
+  outline: 1px solid var(--text-normal);
 }
 
 .annotation-sidebar__anchor {
@@ -214,8 +258,36 @@
   border-bottom: 1px solid var(--interactive-accent);
 }
 
+.annotation-sidebar-color-yellow {
+  --annotation-sidebar-color: #d4a72c;
+  --annotation-sidebar-color-bg: rgba(212, 167, 44, 0.18);
+}
+
+.annotation-sidebar-color-red {
+  --annotation-sidebar-color: #d45b5b;
+  --annotation-sidebar-color-bg: rgba(212, 91, 91, 0.17);
+}
+
+.annotation-sidebar-color-blue {
+  --annotation-sidebar-color: #4f8fcb;
+  --annotation-sidebar-color-bg: rgba(79, 143, 203, 0.17);
+}
+
+.annotation-sidebar-color-green {
+  --annotation-sidebar-color: #4eaa73;
+  --annotation-sidebar-color-bg: rgba(78, 170, 115, 0.17);
+}
+
+.annotation-sidebar-highlight.annotation-sidebar-color-yellow,
+.annotation-sidebar-highlight.annotation-sidebar-color-red,
+.annotation-sidebar-highlight.annotation-sidebar-color-blue,
+.annotation-sidebar-highlight.annotation-sidebar-color-green {
+  background-color: var(--annotation-sidebar-color-bg);
+  border-bottom-color: var(--annotation-sidebar-color);
+}
+
 .annotation-sidebar-position-marker {
-  background: var(--interactive-accent);
+  background: var(--annotation-sidebar-color, var(--interactive-accent));
   border-radius: 2px;
   display: inline-block;
   height: 1.25em;
@@ -225,8 +297,8 @@
 }
 
 .annotation-sidebar-inline-content {
-  background: var(--background-secondary);
-  border-left: 3px solid var(--interactive-accent);
+  background: var(--annotation-sidebar-color-bg, var(--background-secondary));
+  border-left: 3px solid var(--annotation-sidebar-color, var(--interactive-accent));
   box-sizing: border-box;
   color: var(--text-muted);
   cursor: pointer;
@@ -260,9 +332,9 @@
 }
 
 .annotation-sidebar-reading-content__item {
-  background: var(--background-secondary);
+  background: var(--annotation-sidebar-color-bg, var(--background-secondary));
   border: 1px solid var(--background-modifier-border);
-  border-left: 3px solid var(--interactive-accent);
+  border-left: 3px solid var(--annotation-sidebar-color, var(--interactive-accent));
   border-radius: 4px;
   box-shadow: none;
   box-sizing: border-box;
@@ -277,6 +349,22 @@
   text-align: left;
   white-space: pre-wrap;
   width: 100%;
+}
+
+.annotation-sidebar__color-option.annotation-sidebar-color-yellow {
+  background: #d4a72c;
+}
+
+.annotation-sidebar__color-option.annotation-sidebar-color-red {
+  background: #d45b5b;
+}
+
+.annotation-sidebar__color-option.annotation-sidebar-color-blue {
+  background: #4f8fcb;
+}
+
+.annotation-sidebar__color-option.annotation-sidebar-color-green {
+  background: #4eaa73;
 }
 
 .annotation-sidebar-reading-content__item:hover,

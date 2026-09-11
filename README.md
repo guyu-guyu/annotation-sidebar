@@ -60,6 +60,7 @@ Notes/Design.annotations.json
     {
       "id": "67a5c924-7817-46fe-bf6a-faa0ef03422a",
       "content": "这里需要补充依据。",
+      "color": "yellow",
       "createdAt": "2026-09-09T10:00:00.000Z",
       "updatedAt": "2026-09-09T10:01:00.000Z",
       "anchor": {
@@ -94,6 +95,12 @@ Notes/Design.annotations.json
 - 首版不包含多人实时协作冲突合并；所有插件内更新均使用 Vault 的原子 `process` 操作。
 
 架构与取舍见 [设计说明](docs/DESIGN.md)，构建、测试和发布流程见 [开发说明](docs/DEVELOPMENT.md)。
+
+## 批注颜色
+
+每条批注都可以在侧栏中选择黄色、红色、蓝色或绿色。颜色会同时应用于编辑模式的选中文本高亮、单点批注标记、正文批注块、阅读模式批注块和侧栏批注卡片。颜色按钮只更新当前批注，不会重建侧栏列表，因此输入框焦点和滚动位置会保持不变。
+
+旧版 `.annotations.json` 如果没有 `color` 字段，会按黄色读取；保存或修改后会写入颜色字段。
 
 ## License
 

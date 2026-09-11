@@ -14,7 +14,7 @@ import {
 import { resolveAnchor } from "./core";
 import { inlineWidgetPlacement, mapResolvedAnchor } from "./editor-positions";
 import type AnnotationSidebarPlugin from "./main";
-import type { Annotation, ResolvedAnchor } from "./types";
+import type { Annotation, AnnotationColor, ResolvedAnchor } from "./types";
 
 interface LoadedAnnotations {
   annotations: Annotation[];
@@ -41,6 +41,10 @@ interface HighlightController {
 }
 
 const controllers = new Set<HighlightController>();
+
+export function annotationColorClass(color: AnnotationColor): string {
+  return `annotation-sidebar-color-${color}`;
+}
 
 export function createAnnotationEditorExtension(plugin: AnnotationSidebarPlugin): Extension {
   const annotationField = StateField.define<AnnotationEditorState>({
@@ -165,13 +169,14 @@ function buildDecorations(
           widget: new PositionAnnotationWidget(
             annotation.id,
             filePath,
+            annotation.color,
             () => void plugin.openAnnotationInSidebar(filePath, annotation.id),
           ),
           side: 1,
         }).range(anchor.from));
       } else {
         annotationDecorations.push(Decoration.mark({
-          class: "annotation-sidebar-highlight",
+          class: `annotation-sidebar-highlight ${annotationColorClass(annotation.color)}`,
           attributes: {
             "data-annotation-id": annotation.id,
             title: "此处有批注",
@@ -189,6 +194,7 @@ function buildDecorations(
             annotation.id,
             annotation.content,
             filePath,
+            annotation.color,
             () => void plugin.openAnnotationInSidebar(filePath, annotation.id),
           ),
         }).range(placement.position));
@@ -216,18 +222,21 @@ class PositionAnnotationWidget extends WidgetType {
   constructor(
     private readonly annotationId: string,
     private readonly filePath: string,
+    private readonly color: AnnotationColor,
     private readonly onClick: () => void,
   ) {
     super();
   }
 
   eq(other: PositionAnnotationWidget): boolean {
-    return other.annotationId === this.annotationId && other.filePath === this.filePath;
+    return other.annotationId === this.annotationId
+      && other.filePath === this.filePath
+      && other.color === this.color;
   }
 
   toDOM(): HTMLElement {
     const marker = document.createElement("span");
-    marker.className = "annotation-sidebar-position-marker";
+    marker.className = `annotation-sidebar-position-marker ${annotationColorClass(this.color)}`;
     marker.dataset.annotationId = this.annotationId;
     marker.setAttribute("aria-label", "此处有位置批注");
     marker.title = "此处有位置批注";
@@ -255,6 +264,7 @@ class AnnotationContentWidget extends WidgetType {
     private readonly annotationId: string,
     private readonly content: string,
     private readonly filePath: string,
+    private readonly color: AnnotationColor,
     private readonly onClick: () => void,
   ) {
     super();
@@ -263,12 +273,13 @@ class AnnotationContentWidget extends WidgetType {
   eq(other: AnnotationContentWidget): boolean {
     return other.annotationId === this.annotationId
       && other.content === this.content
-      && other.filePath === this.filePath;
+      && other.filePath === this.filePath
+      && other.color === this.color;
   }
 
   toDOM(): HTMLElement {
     const wrapper = document.createElement("div");
-    wrapper.className = "annotation-sidebar-inline-content";
+    wrapper.className = `annotation-sidebar-inline-content ${annotationColorClass(this.color)}`;
     wrapper.dataset.annotationId = this.annotationId;
     wrapper.tabIndex = 0;
     wrapper.setAttribute("role", "button");

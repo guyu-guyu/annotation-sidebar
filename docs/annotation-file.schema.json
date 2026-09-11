@@ -47,9 +47,9 @@
         "content": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" },
+        "color": { "enum": ["yellow", "red", "blue", "green"] },
         "anchor": { "$ref": "#/$defs/anchor" }
       }
     }
   }
 }
-

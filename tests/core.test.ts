@@ -3,6 +3,7 @@ import {
   AnnotationFormatError,
   annotationPathFor,
   createAnchor,
+  createAnnotation,
   createEmptyDocument,
   normalizeSuffix,
   parseAnnotationDocument,
@@ -75,6 +76,11 @@ describe("annotation anchors", () => {
 });
 
 describe("annotation document format", () => {
+  it("assigns yellow to new annotations", () => {
+    expect(createAnnotation(createAnchor("text", 0), "2026-09-09T00:00:00.000Z", "a1").color)
+      .toBe("yellow");
+  });
+
   it("round-trips a versioned document", () => {
     const document = createEmptyDocument("Note.md", "2026-09-09T00:00:00.000Z");
     expect(parseAnnotationDocument(serializeAnnotationDocument(document), "Note.md"))
@@ -84,5 +90,30 @@ describe("annotation document format", () => {
   it("rejects malformed files with a useful error type", () => {
     expect(() => parseAnnotationDocument("{", "Note.md"))
       .toThrow(AnnotationFormatError);
+  });
+
+  it("defaults legacy or invalid colors to yellow", () => {
+    const document = createEmptyDocument("Note.md", "2026-09-09T00:00:00.000Z");
+    const annotation = createAnnotation(createAnchor("text", 0), "2026-09-09T00:00:00.000Z", "a1");
+    const raw = serializeAnnotationDocument({
+      ...document,
+      annotations: [annotation],
+    }).replace('      "color": "yellow",\n', "");
+    expect(parseAnnotationDocument(raw, "Note.md").annotations[0]?.color).toBe("yellow");
+
+    const invalid = raw.replace('"content": ""', '"content": "",\n      "color": "purple"');
+    expect(parseAnnotationDocument(invalid, "Note.md").annotations[0]?.color).toBe("yellow");
+  });
+
+  it("preserves all supported colors", () => {
+    for (const color of ["yellow", "red", "blue", "green"] as const) {
+      const annotation = createAnnotation(createAnchor("text", 0), undefined, color);
+      annotation.color = color;
+      const raw = serializeAnnotationDocument({
+        ...createEmptyDocument("Note.md"),
+        annotations: [annotation],
+      });
+      expect(parseAnnotationDocument(raw, "Note.md").annotations[0]?.color).toBe(color);
+    }
   });
 });

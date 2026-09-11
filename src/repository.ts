@@ -6,7 +6,7 @@ import {
   serializeAnnotationDocument,
   sourcePathForAnnotation,
 } from "./core";
-import type { Annotation, AnnotationAnchor, AnnotationDocument } from "./types";
+import type { Annotation, AnnotationAnchor, AnnotationColor, AnnotationDocument } from "./types";
 
 type DocumentUpdater = (document: AnnotationDocument) => AnnotationDocument;
 
@@ -76,6 +76,25 @@ export class AnnotationRepository {
         ...document,
         annotations: document.annotations.map((annotation) => annotation.id === id
           ? { ...annotation, anchor, updatedAt: now }
+          : annotation),
+      };
+    });
+  }
+
+  async updateColor(
+    note: TFile,
+    id: string,
+    color: AnnotationColor,
+  ): Promise<AnnotationDocument> {
+    const now = new Date().toISOString();
+    return this.mutate(note, (document) => {
+      if (!document.annotations.some((annotation) => annotation.id === id)) {
+        throw new Error(`鎵规敞涓嶅瓨鍦ㄦ垨宸茶鍒犻櫎锛?{id}`);
+      }
+      return {
+        ...document,
+        annotations: document.annotations.map((annotation) => annotation.id === id
+          ? { ...annotation, color, updatedAt: now }
           : annotation),
       };
     });

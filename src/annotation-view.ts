@@ -7,15 +7,24 @@ import {
   setTooltip,
 } from "obsidian";
 import { AnnotationFormatError, offsetToTextPosition } from "./core";
+import { annotationColorClass } from "./editor-highlights";
 import { resolveAnnotationsInDocumentOrder } from "./inline-display";
 import type AnnotationSidebarPlugin from "./main";
-import type { Annotation, AnnotationDocument, ResolvedAnchor } from "./types";
+import {
+  ANNOTATION_COLORS,
+  type Annotation,
+  type AnnotationColor,
+  type AnnotationDocument,
+  type ResolvedAnchor,
+} from "./types";
 
 export const ANNOTATION_VIEW_TYPE = "annotation-sidebar-view";
 
 export class AnnotationView extends ItemView {
   private renderVersion = 0;
   private displayedNotePath: string | null | undefined;
+  private renderState: "idle" | "loading" | "ready" = "idle";
+  private pendingFocusAnnotationId: string | null = null;
   private saveTimers = new Map<string, number>();
   private saveVersions = new Map<string, number>();
   private pendingSaves = new Map<string, { note: TFile; value: string; status: HTMLElement }>();
@@ -65,8 +74,33 @@ export class AnnotationView extends ItemView {
     if (checkbox) checkbox.checked = visible;
   }
 
+  syncAnnotationColor(annotationId: string, color: AnnotationColor): void {
+    const items = this.contentEl.querySelectorAll<HTMLElement>("[data-annotation-id]");
+    const item = Array.from(items).find((element) => element.dataset.annotationId === annotationId);
+    if (!item) return;
+
+    for (const value of ANNOTATION_COLORS) item.classList.remove(annotationColorClass(value));
+    item.classList.add(annotationColorClass(color));
+    const options = item.querySelectorAll<HTMLButtonElement>("[data-annotation-color]");
+    options.forEach((option) => {
+      option.setAttribute("aria-pressed", String(option.dataset.annotationColor === color));
+      option.classList.toggle("is-selected", option.dataset.annotationColor === color);
+    });
+  }
+
   isShowingNote(notePath: string | null): boolean {
     return this.displayedNotePath === notePath;
+  }
+
+  async showAnnotation(note: TFile, annotationId: string): Promise<void> {
+    if (this.displayedNotePath === note.path) {
+      if (this.renderState === "loading") {
+        this.pendingFocusAnnotationId = annotationId;
+        return;
+      }
+      if (this.renderState === "ready" && this.focusAnnotation(annotationId)) return;
+    }
+    await this.refresh(annotationId, note, true);
   }
 
   async refresh(
@@ -76,7 +110,10 @@ export class AnnotationView extends ItemView {
   ): Promise<void> {
     const version = ++this.renderVersion;
     const note = noteOverride ?? this.plugin.getCurrentNote();
+    if (this.displayedNotePath !== (note?.path ?? null)) this.pendingFocusAnnotationId = null;
     this.displayedNotePath = note?.path ?? null;
+    this.renderState = "loading";
+    if (focusAnnotationId !== undefined) this.pendingFocusAnnotationId = focusAnnotationId;
 
     if (!preserveContent) {
       this.contentEl.empty();
@@ -90,6 +127,8 @@ export class AnnotationView extends ItemView {
         this.contentEl.addClass("annotation-sidebar");
         this.renderHeader(note);
       }
+      this.renderState = "ready";
+      this.pendingFocusAnnotationId = null;
       this.renderEmptyState("打开一篇 Markdown 笔记后即可添加批注。", "file-text");
       return;
     }
@@ -104,12 +143,17 @@ export class AnnotationView extends ItemView {
       this.contentEl.empty();
       this.renderHeader(note, annotationDocument.annotations.length);
       this.renderDocument(note, annotationDocument, content);
-      if (focusAnnotationId) this.focusAnnotation(focusAnnotationId);
+      this.renderState = "ready";
+      const focusId = this.pendingFocusAnnotationId;
+      this.pendingFocusAnnotationId = null;
+      if (focusId) this.focusAnnotation(focusId);
     } catch (error) {
       if (version !== this.renderVersion) return;
       this.contentEl.empty();
       this.renderHeader(note);
       this.renderError(note, error);
+      this.renderState = "ready";
+      this.pendingFocusAnnotationId = null;
     }
   }
 
@@ -176,7 +220,7 @@ export class AnnotationView extends ItemView {
     content: string,
   ): void {
     const card = container.createDiv({
-      cls: "annotation-sidebar__item",
+      cls: `annotation-sidebar__item ${annotationColorClass(annotation.color)}`,
       attr: { "data-annotation-id": annotation.id },
     });
     const itemHeader = card.createDiv({ cls: "annotation-sidebar__item-header" });
@@ -189,6 +233,28 @@ export class AnnotationView extends ItemView {
       attr: { title: "跳转到正文位置" },
     });
     anchorButton.addEventListener("click", () => void this.plugin.jumpToAnnotation(note, annotation));
+
+    const colorPicker = itemHeader.createDiv({
+      cls: "annotation-sidebar__color-picker",
+      attr: { "aria-label": "鎵规敞棰滆壊" },
+    });
+    for (const color of ANNOTATION_COLORS) {
+      const option = colorPicker.createEl("button", {
+        cls: `annotation-sidebar__color-option ${annotationColorClass(color)}${color === annotation.color ? " is-selected" : ""}`,
+        attr: {
+          type: "button",
+          "data-annotation-color": color,
+          "aria-label": colorLabel(color),
+          "aria-pressed": String(color === annotation.color),
+        },
+      });
+      setTooltip(option, colorLabel(color));
+      option.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        void this.plugin.setAnnotationColor(note, annotation.id, color);
+      });
+    }
 
     const itemActions = itemHeader.createDiv({ cls: "annotation-sidebar__item-actions" });
     itemActions.appendChild(this.createIconButton("crosshair", "重定位批注到当前选区或光标", () => {
@@ -297,14 +363,17 @@ export class AnnotationView extends ItemView {
     }
   }
 
-  private focusAnnotation(id: string): void {
+  private focusAnnotation(id: string): boolean {
+    const items = this.contentEl.querySelectorAll<HTMLElement>("[data-annotation-id]");
+    const item = Array.from(items).find((element) => element.dataset.annotationId === id);
+    if (!item) return false;
+
     window.requestAnimationFrame(() => {
-      const items = this.contentEl.querySelectorAll<HTMLElement>("[data-annotation-id]");
-      const item = Array.from(items).find((element) => element.dataset.annotationId === id);
-      const textarea = item?.querySelector<HTMLTextAreaElement>("textarea");
-      item?.scrollIntoView({ block: "nearest" });
+      const textarea = item.querySelector<HTMLTextAreaElement>("textarea");
+      item.scrollIntoView({ block: "nearest" });
       textarea?.focus();
     });
+    return true;
   }
 
   private renderEmptyState(message: string, icon: string): HTMLElement {
@@ -357,4 +426,14 @@ function formatTimestamp(value: string): string {
     hour: "2-digit",
     minute: "2-digit",
   }).format(date);
+}
+
+function colorLabel(color: AnnotationColor): string {
+  const labels: Record<AnnotationColor, string> = {
+    yellow: "\u9ec4\u8272",
+    red: "\u7ea2\u8272",
+    blue: "\u84dd\u8272",
+    green: "\u7eff\u8272",
+  };
+  return labels[color];
 }

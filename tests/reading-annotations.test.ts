@@ -105,6 +105,7 @@ describe("ReadingAnnotationRenderer", () => {
       "a1",
     );
     annotation.content = "需要复核";
+    annotation.color = "red";
     const plugin = {
       settings: { showInlineAnnotations: true },
       app: { vault: { getAbstractFileByPath: () => source } },
@@ -129,6 +130,8 @@ describe("ReadingAnnotationRenderer", () => {
     const container = parent.children[1];
     if (!container) throw new Error("reading annotation container was not rendered");
     expect(container.className).toBe("annotation-sidebar-reading-content");
+    expect(container.children[0]?.className)
+      .toBe("annotation-sidebar-reading-content__item annotation-sidebar-color-red");
     expect(container.children[0]?.textContent).toBe("需要复核");
     expect(addChild).toHaveBeenCalledTimes(1);
   });

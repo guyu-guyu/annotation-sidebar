@@ -140,6 +140,27 @@ describe("AnnotationRepository", () => {
     expect(relocated?.updatedAt).not.toBe(original.updatedAt);
   });
 
+  it("updates an annotation color without changing its anchor or identity", async () => {
+    const note = makeFile("Note.md");
+    const original = createAnnotation(
+      createAnchor("target", 0, 6),
+      "2026-09-09T00:00:00.000Z",
+      "a1",
+    );
+    original.content = "keep this comment";
+    await repository.add(note, original);
+
+    await repository.updateColor(note, original.id, "blue");
+
+    const updated = (await repository.load(note)).annotations[0];
+    expect(updated?.id).toBe("a1");
+    expect(updated?.content).toBe("keep this comment");
+    expect(updated?.createdAt).toBe("2026-09-09T00:00:00.000Z");
+    expect(updated?.anchor).toEqual(original.anchor);
+    expect(updated?.color).toBe("blue");
+    expect(updated?.updatedAt).not.toBe(original.updatedAt);
+  });
+
   it("uses the host trash behavior when a source note is deleted", async () => {
     const note = makeFile("Note.md");
     await repository.add(note, createAnnotation(createAnchor("text", 0), undefined, "a1"));
@@ -171,6 +192,14 @@ describe("AnnotationRepository", () => {
 
     await expect(repository.updateAnchor(note, "deleted", createAnchor("text", 0)))
       .rejects.toThrow("批注不存在或已被删除");
+    expect(vault.files.has("Note.annotations.json")).toBe(false);
+  });
+
+  it("does not recreate a deleted annotation when changing color", async () => {
+    const note = makeFile("Note.md");
+
+    await expect(repository.updateColor(note, "deleted", "red"))
+      .rejects.toThrow("鎵规敞涓嶅瓨鍦ㄦ垨宸茶鍒犻櫎");
     expect(vault.files.has("Note.annotations.json")).toBe(false);
   });
 });

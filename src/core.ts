@@ -1,6 +1,9 @@
 import {
   ANNOTATION_DOCUMENT_VERSION,
+  ANNOTATION_COLORS,
+  DEFAULT_ANNOTATION_COLOR,
   type Annotation,
+  type AnnotationColor,
   type AnnotationAnchor,
   type AnnotationDocument,
   type ResolvedAnchor,
@@ -9,6 +12,12 @@ import {
 
 export const DEFAULT_ANNOTATION_SUFFIX = ".annotations.json";
 export const ANCHOR_CONTEXT_LENGTH = 48;
+
+export function parseAnnotationColor(value: unknown): AnnotationColor {
+  return typeof value === "string" && (ANNOTATION_COLORS as readonly string[]).includes(value)
+    ? value as AnnotationColor
+    : DEFAULT_ANNOTATION_COLOR;
+}
 
 export class AnnotationFormatError extends Error {
   constructor(message: string) {
@@ -133,6 +142,7 @@ export function createAnnotation(
   return {
     id,
     content: "",
+    color: DEFAULT_ANNOTATION_COLOR,
     createdAt: now,
     updatedAt: now,
     anchor,
@@ -182,6 +192,7 @@ function parseAnnotation(value: unknown, index: number): Annotation {
   return {
     id: requireString(value.id, `annotations[${index}].id`),
     content: requireString(value.content, `annotations[${index}].content`),
+    color: parseAnnotationColor(value.color),
     createdAt: requireString(value.createdAt, `annotations[${index}].createdAt`),
     updatedAt: requireString(value.updatedAt, `annotations[${index}].updatedAt`),
     anchor: {
@@ -318,4 +329,3 @@ function generateAnnotationId(): string {
   }
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
-

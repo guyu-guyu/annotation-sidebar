@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.4.0 - 2026-09-11
+
+- Add yellow, red, blue, and green colors for every annotation.
+- Apply annotation colors to sidebar cards, editor highlights and markers, and read-only inline blocks.
+- Keep color changes local to the active sidebar entry to avoid sidebar flashing.
+
+## 0.3.2 - 2026-09-11
+
+- Focus existing sidebar annotations without rebuilding the sidebar when inline content is clicked.
+
 ## 0.3.1 - 2026-09-10
 
 - Generate the complete installable plugin under a dedicated `dist/` directory.

@@ -20,7 +20,7 @@ import {
   DEFAULT_SETTINGS,
   type AnnotationSidebarSettings,
 } from "./settings";
-import type { Annotation } from "./types";
+import type { Annotation, AnnotationColor } from "./types";
 
 export default class AnnotationSidebarPlugin extends Plugin {
   settings: AnnotationSidebarSettings = { ...DEFAULT_SETTINGS };
@@ -206,6 +206,21 @@ export default class AnnotationSidebarPlugin extends Plugin {
     }
   }
 
+  async setAnnotationColor(
+    note: TFile,
+    annotationId: string,
+    color: AnnotationColor,
+  ): Promise<void> {
+    try {
+      await this.repository.updateColor(note, annotationId, color);
+      this.refreshInlineDisplays(note.path);
+      const view = this.getOpenView();
+      if (view?.isShowingNote(note.path)) view.syncAnnotationColor(annotationId, color);
+    } catch (error) {
+      this.reportError("淇敼鎵规敞棰滆壊澶辫触", error);
+    }
+  }
+
   async jumpToAnnotation(note: TFile, annotation: Annotation): Promise<void> {
     try {
       const leaf = this.findLeafForFile(note) ?? this.app.workspace.getLeaf(false);
@@ -246,7 +261,7 @@ export default class AnnotationSidebarPlugin extends Plugin {
     }
 
     const view = await this.activateView();
-    if (view) await view.refresh(annotationId, source);
+    if (view) await view.showAnnotation(source, annotationId);
   }
 
   confirmDelete(annotation: Annotation, onConfirm: () => Promise<void>): void {

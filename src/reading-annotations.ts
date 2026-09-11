@@ -9,8 +9,9 @@ import {
   compareAnnotationsForDisplay,
   shouldDisplayAnnotationContent,
 } from "./inline-display";
+import { annotationColorClass } from "./editor-highlights";
 import type AnnotationSidebarPlugin from "./main";
-import type { AnnotationDocument } from "./types";
+import type { AnnotationColor, AnnotationDocument } from "./types";
 
 export class ReadingAnnotationRenderer {
   readonly postProcessor: MarkdownPostProcessor;
@@ -56,6 +57,7 @@ export class ReadingAnnotationRenderer {
       container.appendChild(this.createAnnotationElement(
         annotation.id,
         annotation.content,
+        annotation.color,
         context.sourcePath,
         element.ownerDocument,
       ));
@@ -92,12 +94,13 @@ export class ReadingAnnotationRenderer {
   private createAnnotationElement(
     annotationId: string,
     content: string,
+    color: AnnotationColor,
     sourcePath: string,
     ownerDocument: Document,
   ): HTMLElement {
     const button = ownerDocument.createElement("button");
     button.type = "button";
-    button.className = "annotation-sidebar-reading-content__item";
+    button.className = `annotation-sidebar-reading-content__item ${annotationColorClass(color)}`;
     button.dataset.annotationId = annotationId;
     button.setAttribute("aria-label", "在批注侧栏中打开此批注");
     button.title = "点击在批注侧栏中打开";
@@ -111,4 +114,3 @@ export class ReadingAnnotationRenderer {
     return button;
   }
 }
-
