@@ -1,0 +1,82 @@
+docs/DEVELOPMENT.md
+  s_258ec1f6cb4cf5::t_b50b24ddcfd1f4 3-6
+versions.json
+  s_258ec1f6cb4cf5::t_eb74577cb22340 11-12
+  s_258ec1f6cb4cf5::t_1e83cd78d0bf28 10
+src/editor-highlights.ts
+  s_258ec1f6cb4cf5::t_f73f0aacf7df9c 17,45-48,172,179,197,225,232-234,239,267,276-277,282
+src/reading-annotations.ts
+  s_258ec1f6cb4cf5::t_69a9495f3d08f1 12,60,103
+  s_258ec1f6cb4cf5::t_d59b02b17cb60c 14,97
+src/annotation-view.ts
+  s_258ec1f6cb4cf5::t_df5d9e69aa4fbf 430-439
+  s_258ec1f6cb4cf5::t_67f24ac7b23eea 366-370,372-373,376
+  s_258ec1f6cb4cf5::t_0c86fcf2e2177e 95-105,113,115-116
+  s_258ec1f6cb4cf5::t_ead69dab9d2b52 10,13-19,77-90,223,237-257
+  s_258ec1f6cb4cf5::t_22d0fb3e21ffb7 26-27
+  s_258ec1f6cb4cf5::t_230128ae932e28 130-131,146-149,155-156
+  s_258ec1f6cb4cf5::t_40dbecc9a631d2 258
+tests/repository.test.ts
+  s_258ec1f6cb4cf5::t_48495798f5c49c 143-163,197-202,204
+  s_258ec1f6cb4cf5::t_1a1c66f949059a 203
+src/core.ts
+  s_258ec1f6cb4cf5::t_45d31c392265fb 3-4,6,16-21,145,195
+tests/inline-toggle.test.ts
+  s_258ec1f6cb4cf5::t_ada80665a1b82f 37,167-171,174-186
+  s_258ec1f6cb4cf5::t_bed8ab3acc35b1 47,59,95-109
+  s_258ec1f6cb4cf5::t_13b022eb7b1614 172-173
+  s_258ec1f6cb4cf5::t_bb6a7cbe990d93 110-111
+  s_258ec1f6cb4cf5::t_94479b49c0d9ef 187
+src/main.ts
+  s_258ec1f6cb4cf5::t_6700ac7fe7cbf5 23,209-216,219-220
+  s_258ec1f6cb4cf5::t_4d89679aa40404 217-218
+  s_258ec1f6cb4cf5::t_9eac7936610711 264
+  s_258ec1f6cb4cf5::t_a36a36315e81e6 221-223
+manifest.json
+  s_258ec1f6cb4cf5::t_eb74577cb22340 4
+src/repository.ts
+  s_258ec1f6cb4cf5::t_0d47b71f998d50 9,84-97
+  s_258ec1f6cb4cf5::t_367b63eb2a40e3 98-100
+  s_258ec1f6cb4cf5::t_6b40b29c0e7135 101-102
+README.md
+  s_258ec1f6cb4cf5::t_30bf5fbd4ef032 99-104
+  s_258ec1f6cb4cf5::t_9262d21f4f04ae 63
+CHANGELOG.md
+  s_258ec1f6cb4cf5::t_eb74577cb22340 3-8
+  s_258ec1f6cb4cf5::t_1e83cd78d0bf28 9-12
+styles.css
+  s_258ec1f6cb4cf5::t_89de8b88ac3652 88-95,109-142,261-288,290,300-301,335,337,354-368
+  s_258ec1f6cb4cf5::t_e1ad07e9209b62 97-99
+  s_258ec1f6cb4cf5::t_9fc986faabea48 369
+docs/annotation-file.schema.json
+  s_258ec1f6cb4cf5::t_e2e050b24369e7 50
+tests/core.test.ts
+  s_258ec1f6cb4cf5::t_07bd4a34a8c5e5 6,79-83,94-100,102-118
+  s_258ec1f6cb4cf5::t_becdd25dc25590 101
+tests/reading-annotations.test.ts
+  s_258ec1f6cb4cf5::t_50cd3a9f27ba0e 108,133-134
+docs/DESIGN.md
+  s_258ec1f6cb4cf5::t_b50b24ddcfd1f4 3-6
+package.json
+  s_258ec1f6cb4cf5::t_1e83cd78d0bf28 3
+package-lock.json
+  s_258ec1f6cb4cf5::t_cbc40c6531b4ef 3,9
+src/types.ts
+  s_258ec1f6cb4cf5::t_393fb3e9ae6de0 3-13,32
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "3ea4755b424dc5aa87dc78a5f500ec307100355b",
+  "prompts": {},
+  "sessions": {
+    "s_258ec1f6cb4cf5": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a08598-dff0-7e13-9916-4c0a7d1f65a9",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "leijieliu <leijieliu@tencent.com>"
+    }
+  }
+}
