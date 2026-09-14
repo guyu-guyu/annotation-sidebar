@@ -81,6 +81,11 @@ export class AnnotationView extends ItemView {
     for (const value of this.plugin.settings.annotationTypes.map((item) => item.name)) item.classList.remove(annotationColorClass(value));
     item.classList.add(annotationColorClass(type));
     item.setAttribute("style", annotationTypeStyle(this.plugin, type));
+    const typeIcon = item.querySelector<HTMLElement>(".annotation-sidebar__type-icon");
+    if (typeIcon) {
+      typeIcon.setAttribute("style", `color:${annotationTypeColor(this.plugin, type)};`);
+      setIcon(typeIcon, annotationTypeIcon(this.plugin, type));
+    }
     const options = item.querySelectorAll<HTMLButtonElement>("[data-annotation-type]");
     options.forEach((option) => {
       option.setAttribute("aria-pressed", String(option.dataset.annotationType === type));
@@ -237,7 +242,7 @@ export class AnnotationView extends ItemView {
 
     const colorPicker = itemHeader.createDiv({
       cls: "annotation-sidebar__color-picker",
-      attr: { "aria-label": "鎵规敞棰滆壊" },
+      attr: { "aria-label": "批注颜色" },
     });
     for (const { name: type } of this.plugin.settings.annotationTypes) {
       const option = colorPicker.createEl("button", {

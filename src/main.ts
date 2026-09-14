@@ -217,7 +217,7 @@ export default class AnnotationSidebarPlugin extends Plugin {
       const view = this.getOpenView();
       if (view?.isShowingNote(note.path)) view.syncAnnotationType(annotationId, type);
     } catch (error) {
-      this.reportError("淇敼鎵规敞棰滆壊澶辫触", error);
+      this.reportError("修改批注颜色失败", error);
     }
   }
 
