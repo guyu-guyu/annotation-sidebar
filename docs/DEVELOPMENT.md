@@ -6,7 +6,7 @@
 
 ## 环境
 
-- Node.js 20 或更高版本。
+- Node.js 22 或更高版本（vitest 5 要求 `^22.12` / `^24` / `>=26`）。
 - npm 10 或更高版本。
 - Obsidian 1.4.0 或更高版本。
 
@@ -67,4 +67,7 @@ npm run check
 1. 更新 `package.json`、`manifest.json` 和 `versions.json` 中的版本。
 2. 更新 `CHANGELOG.md`。
 3. 执行 `npm ci` 和 `npm run check`。
-4. 发布 `dist/` 中的 `main.js`、`manifest.json`、`styles.css` 三个文件。
+4. 合并改动并推送到 `master`。
+5. 打与版本号同名的标签并推送，例如 `git tag 0.4.0 && git push origin master --follow-tags`。
+
+标签推送后，`.github/workflows/release.yml` 会校验三处版本与标签一致、运行测试、构建，然后把 `dist/` 中的 `main.js`、`manifest.json`、`styles.css` 发布为 GitHub Release，发布说明取 `CHANGELOG.md` 中对应版本的条目。版本不一致或 `versions.json` 缺少该版本时流水线会直接失败。
