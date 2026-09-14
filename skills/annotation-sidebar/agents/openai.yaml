@@ -1,0 +1,4 @@
+interface:
+  display_name: Annotation Sidebar
+  short_description: Add or edit Markdown note annotations
+  default_prompt: Add or modify an annotation in the specified Markdown note using its Annotation Sidebar sidecar file.

@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Add a Lucide icon picker for annotation types in settings.
+- Rename, recolor, add, and delete annotation types; reassign annotations when a type is deleted.
+
 ## 0.4.0 - 2026-09-11
 
 - Add yellow, red, blue, and green colors for every annotation.

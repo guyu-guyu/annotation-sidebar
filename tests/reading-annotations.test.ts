@@ -12,6 +12,7 @@ vi.mock("obsidian", () => {
   return {
     MarkdownRenderChild: MockMarkdownRenderChild,
     TFile: MockTFile,
+    setIcon: vi.fn(),
   };
 });
 
@@ -105,9 +106,9 @@ describe("ReadingAnnotationRenderer", () => {
       "a1",
     );
     annotation.content = "需要复核";
-    annotation.color = "red";
+    annotation.type = "error";
     const plugin = {
-      settings: { showInlineAnnotations: true },
+      settings: { showInlineAnnotations: true, annotationTypes: [{ name: "error", color: "#d45b5b", icon: "alert-circle" }] },
       app: { vault: { getAbstractFileByPath: () => source } },
       repository: { load: async () => ({
         ...createEmptyDocument("Note.md"),
@@ -131,8 +132,8 @@ describe("ReadingAnnotationRenderer", () => {
     if (!container) throw new Error("reading annotation container was not rendered");
     expect(container.className).toBe("annotation-sidebar-reading-content");
     expect(container.children[0]?.className)
-      .toBe("annotation-sidebar-reading-content__item annotation-sidebar-color-red");
-    expect(container.children[0]?.textContent).toBe("需要复核");
+      .toBe("annotation-sidebar-reading-content__item annotation-sidebar-type");
+    expect(container.children[0]?.children.at(-1)?.textContent).toBe("需要复核");
     expect(addChild).toHaveBeenCalledTimes(1);
   });
 

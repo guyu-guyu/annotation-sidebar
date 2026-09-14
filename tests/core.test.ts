@@ -76,9 +76,9 @@ describe("annotation anchors", () => {
 });
 
 describe("annotation document format", () => {
-  it("assigns yellow to new annotations", () => {
-    expect(createAnnotation(createAnchor("text", 0), "2026-09-09T00:00:00.000Z", "a1").color)
-      .toBe("yellow");
+  it("assigns warn to new annotations", () => {
+    expect(createAnnotation(createAnchor("text", 0), "2026-09-09T00:00:00.000Z", "a1").type)
+      .toBe("warn");
   });
 
   it("round-trips a versioned document", () => {
@@ -92,28 +92,28 @@ describe("annotation document format", () => {
       .toThrow(AnnotationFormatError);
   });
 
-  it("defaults legacy or invalid colors to yellow", () => {
+  it("defaults invalid types to warn", () => {
     const document = createEmptyDocument("Note.md", "2026-09-09T00:00:00.000Z");
     const annotation = createAnnotation(createAnchor("text", 0), "2026-09-09T00:00:00.000Z", "a1");
     const raw = serializeAnnotationDocument({
       ...document,
       annotations: [annotation],
-    }).replace('      "color": "yellow",\n', "");
-    expect(parseAnnotationDocument(raw, "Note.md").annotations[0]?.color).toBe("yellow");
+    }).replace('"type": "warn"', '"type": ""');
+    expect(parseAnnotationDocument(raw, "Note.md").annotations[0]?.type).toBe("warn");
 
-    const invalid = raw.replace('"content": ""', '"content": "",\n      "color": "purple"');
-    expect(parseAnnotationDocument(invalid, "Note.md").annotations[0]?.color).toBe("yellow");
+    const invalid = raw.replace('"type": ""', '"type": "custom"');
+    expect(parseAnnotationDocument(invalid, "Note.md").annotations[0]?.type).toBe("custom");
   });
 
-  it("preserves all supported colors", () => {
-    for (const color of ["yellow", "red", "blue", "green"] as const) {
-      const annotation = createAnnotation(createAnchor("text", 0), undefined, color);
-      annotation.color = color;
+  it("preserves custom types", () => {
+    for (const type of ["error", "warn", "note", "hint", "custom"] as const) {
+      const annotation = createAnnotation(createAnchor("text", 0), undefined, "a1");
+      annotation.type = type;
       const raw = serializeAnnotationDocument({
         ...createEmptyDocument("Note.md"),
         annotations: [annotation],
       });
-      expect(parseAnnotationDocument(raw, "Note.md").annotations[0]?.color).toBe(color);
+      expect(parseAnnotationDocument(raw, "Note.md").annotations[0]?.type).toBe(type);
     }
   });
 });

@@ -20,7 +20,7 @@ import {
   DEFAULT_SETTINGS,
   type AnnotationSidebarSettings,
 } from "./settings";
-import type { Annotation, AnnotationColor } from "./types";
+import type { Annotation, AnnotationType } from "./types";
 
 export default class AnnotationSidebarPlugin extends Plugin {
   settings: AnnotationSidebarSettings = { ...DEFAULT_SETTINGS };
@@ -206,19 +206,33 @@ export default class AnnotationSidebarPlugin extends Plugin {
     }
   }
 
-  async setAnnotationColor(
+  async setAnnotationType(
     note: TFile,
     annotationId: string,
-    color: AnnotationColor,
+    type: AnnotationType,
   ): Promise<void> {
     try {
-      await this.repository.updateColor(note, annotationId, color);
+      await this.repository.updateType(note, annotationId, type);
       this.refreshInlineDisplays(note.path);
       const view = this.getOpenView();
-      if (view?.isShowingNote(note.path)) view.syncAnnotationColor(annotationId, color);
+      if (view?.isShowingNote(note.path)) view.syncAnnotationType(annotationId, type);
     } catch (error) {
       this.reportError("淇敼鎵规敞棰滆壊澶辫触", error);
     }
+  }
+
+  async renameAnnotationType(previous: string, next: string): Promise<void> {
+    for (const note of this.app.vault.getMarkdownFiles()) {
+      const document = await this.repository.load(note);
+      for (const annotation of document.annotations.filter((item) => item.type === previous)) {
+        await this.repository.updateType(note, annotation.id, next);
+      }
+    }
+    this.refreshInlineDisplays();
+  }
+
+  async replaceAnnotationType(previous: string, replacement: string): Promise<void> {
+    await this.renameAnnotationType(previous, replacement);
   }
 
   async jumpToAnnotation(note: TFile, annotation: Annotation): Promise<void> {
@@ -316,7 +330,7 @@ export default class AnnotationSidebarPlugin extends Plugin {
     refreshAnnotationHighlights(filePath, preservePositions);
   }
 
-  refreshInlineDisplays(filePath: string, preserveEditorPositions = true): void {
+  refreshInlineDisplays(filePath?: string, preserveEditorPositions = true): void {
     this.readingAnnotations.invalidate(filePath);
     this.refreshEditorHighlights(filePath, preserveEditorPositions);
     this.refreshReadingViews(filePath);
@@ -333,7 +347,15 @@ export default class AnnotationSidebarPlugin extends Plugin {
 
   private async loadSettings(): Promise<void> {
     const loaded = (await this.loadData()) as Partial<AnnotationSidebarSettings> | null;
-    this.settings = { ...DEFAULT_SETTINGS, ...loaded };
+    this.settings = {
+      ...DEFAULT_SETTINGS,
+      ...loaded,
+      annotationTypes: Array.isArray(loaded?.annotationTypes) && loaded.annotationTypes.length > 0
+        ? loaded.annotationTypes
+          .filter((item) => Boolean(item && typeof item.name === "string" && typeof item.color === "string"))
+          .map((item) => ({ ...item, icon: typeof item.icon === "string" ? item.icon : "circle" }))
+        : DEFAULT_SETTINGS.annotationTypes.map((item) => ({ ...item })),
+    };
     try {
       this.settings.annotationSuffix = normalizeSuffix(this.settings.annotationSuffix);
     } catch {

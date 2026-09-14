@@ -1,6 +1,7 @@
-import { Notice, PluginSettingTab, Setting } from "obsidian";
+import { Modal, Notice, PluginSettingTab, Setting, getIconIds, setIcon } from "obsidian";
 import { DEFAULT_ANNOTATION_SUFFIX, normalizeSuffix } from "./core";
 import type AnnotationSidebarPlugin from "./main";
+import { DEFAULT_ANNOTATION_TYPES, normalizeAnnotationIcon, type AnnotationTypeConfig } from "./types";
 
 export interface AnnotationSidebarSettings {
   annotationSuffix: string;
@@ -8,6 +9,7 @@ export interface AnnotationSidebarSettings {
   autoRenameCompanion: boolean;
   autoTrashCompanion: boolean;
   showInlineAnnotations: boolean;
+  annotationTypes: AnnotationTypeConfig[];
 }
 
 export const DEFAULT_SETTINGS: AnnotationSidebarSettings = {
@@ -16,6 +18,7 @@ export const DEFAULT_SETTINGS: AnnotationSidebarSettings = {
   autoRenameCompanion: true,
   autoTrashCompanion: true,
   showInlineAnnotations: false,
+  annotationTypes: DEFAULT_ANNOTATION_TYPES.map((item) => ({ ...item })),
 };
 
 export class AnnotationSidebarSettingTab extends PluginSettingTab {
@@ -86,5 +89,95 @@ export class AnnotationSidebarSettingTab extends PluginSettingTab {
         .onChange(async (value) => {
           await this.plugin.setInlineAnnotationsVisible(value);
         }));
+
+    const types = this.plugin.settings.annotationTypes;
+    types.forEach((type, index) => {
+      new Setting(this.containerEl)
+        .setName("")
+        .setClass("annotation-sidebar-type-setting")
+        .addText((text) => text.setValue(type.name).onChange(async (value) => {
+          const name = value.trim();
+          if (!name || types.some((item, i) => i !== index && item.name === name)) {
+            new Notice("类型名不能为空且不能重复");
+            text.setValue(type.name);
+            return;
+          }
+          const previous = type.name;
+          type.name = name;
+          await this.plugin.renameAnnotationType(previous, name);
+          await this.plugin.saveSettings();
+          this.display();
+        }))
+        .addColorPicker((picker) => picker.setValue(type.color).onChange(async (value) => {
+          type.color = value;
+          await this.plugin.saveSettings();
+          this.plugin.refreshInlineDisplays();
+        }))
+        .addButton((button) => {
+          button.setButtonText("");
+          button.setTooltip("icon");
+          button.buttonEl.classList.add("annotation-sidebar-icon-button");
+          setIcon(button.buttonEl, normalizeAnnotationIcon(type.icon));
+          button.onClick(() => new IconPickerModal(this.plugin, type, (icon) => {
+            setIcon(button.buttonEl, icon);
+          }).open());
+        })
+        .addButton((button) => button.setButtonText("删除").setWarning().onClick(async () => {
+          if (types.length === 1) {
+            new Notice("至少保留一种类型");
+            return;
+          }
+          const replacement = types.find((item, i) => i !== index)?.name;
+          if (replacement) await this.plugin.replaceAnnotationType(type.name, replacement);
+          types.splice(index, 1);
+          await this.plugin.saveSettings();
+          this.display();
+          this.plugin.refreshInlineDisplays();
+        }));
+    });
+    new Setting(this.containerEl).addButton((button) => button
+      .setButtonText("新增类型")
+      .onClick(async () => {
+        let name = "custom";
+        let suffix = 1;
+        while (types.some((item) => item.name === name)) name = `custom-${suffix++}`;
+        types.push({ name, color: "#888888", icon: "circle" });
+        await this.plugin.saveSettings();
+        this.display();
+      }));
   }
+}
+
+class IconPickerModal extends Modal {
+  constructor(
+    private readonly plugin: AnnotationSidebarPlugin,
+    private readonly type: AnnotationTypeConfig,
+    private readonly onSelect: (icon: string) => void,
+  ) { super(plugin.app); }
+
+  onOpen(): void {
+    this.titleEl.setText("选择 icon");
+    const search = this.contentEl.createEl("input", { type: "search", placeholder: "Search..." });
+    search.className = "annotation-sidebar-icon-search";
+    const grid = this.contentEl.createDiv({ cls: "annotation-sidebar-icon-grid" });
+    const render = (query = "") => {
+      grid.empty();
+      getIconIds().filter((id) => id.includes(query.toLowerCase())).slice(0, 300).forEach((id) => {
+        const button = grid.createEl("button", { attr: { type: "button", title: id, "aria-label": id } });
+        setIcon(button, normalizeAnnotationIcon(id));
+        button.addEventListener("click", async () => {
+          this.type.icon = id;
+          this.onSelect(id);
+          await this.plugin.saveSettings();
+          this.plugin.refreshInlineDisplays();
+          this.close();
+        });
+      });
+    };
+    search.addEventListener("input", () => render(search.value));
+    render();
+    search.focus();
+  }
+
+  onClose(): void { this.contentEl.empty(); }
 }

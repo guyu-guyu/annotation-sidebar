@@ -6,14 +6,13 @@ import {
   setIcon,
   setTooltip,
 } from "obsidian";
-import { AnnotationFormatError, offsetToTextPosition } from "./core";
-import { annotationColorClass } from "./editor-highlights";
+import { AnnotationFormatError } from "./core";
+import { annotationColorClass, annotationTypeColor, annotationTypeIcon, annotationTypeStyle } from "./editor-highlights";
 import { resolveAnnotationsInDocumentOrder } from "./inline-display";
 import type AnnotationSidebarPlugin from "./main";
 import {
-  ANNOTATION_COLORS,
   type Annotation,
-  type AnnotationColor,
+  type AnnotationType,
   type AnnotationDocument,
   type ResolvedAnchor,
 } from "./types";
@@ -74,19 +73,21 @@ export class AnnotationView extends ItemView {
     if (checkbox) checkbox.checked = visible;
   }
 
-  syncAnnotationColor(annotationId: string, color: AnnotationColor): void {
+  syncAnnotationType(annotationId: string, type: AnnotationType): void {
     const items = this.contentEl.querySelectorAll<HTMLElement>("[data-annotation-id]");
     const item = Array.from(items).find((element) => element.dataset.annotationId === annotationId);
     if (!item) return;
 
-    for (const value of ANNOTATION_COLORS) item.classList.remove(annotationColorClass(value));
-    item.classList.add(annotationColorClass(color));
-    const options = item.querySelectorAll<HTMLButtonElement>("[data-annotation-color]");
+    for (const value of this.plugin.settings.annotationTypes.map((item) => item.name)) item.classList.remove(annotationColorClass(value));
+    item.classList.add(annotationColorClass(type));
+    item.setAttribute("style", annotationTypeStyle(this.plugin, type));
+    const options = item.querySelectorAll<HTMLButtonElement>("[data-annotation-type]");
     options.forEach((option) => {
-      option.setAttribute("aria-pressed", String(option.dataset.annotationColor === color));
-      option.classList.toggle("is-selected", option.dataset.annotationColor === color);
+      option.setAttribute("aria-pressed", String(option.dataset.annotationType === type));
+      option.classList.toggle("is-selected", option.dataset.annotationType === type);
     });
   }
+
 
   isShowingNote(notePath: string | null): boolean {
     return this.displayedNotePath === notePath;
@@ -220,48 +221,47 @@ export class AnnotationView extends ItemView {
     content: string,
   ): void {
     const card = container.createDiv({
-      cls: `annotation-sidebar__item ${annotationColorClass(annotation.color)}`,
+      cls: `annotation-sidebar__item ${annotationColorClass(annotation.type)}`,
       attr: { "data-annotation-id": annotation.id },
     });
-    const itemHeader = card.createDiv({ cls: "annotation-sidebar__item-header" });
-    const position = offsetToTextPosition(content, resolvedAnchor.from);
-    const anchorButton = itemHeader.createEl("button", {
-      cls: "annotation-sidebar__anchor",
-      text: annotation.anchor.kind === "selection"
-        ? `第 ${position.line + 1} 行`
-        : `第 ${position.line + 1} 行，第 ${position.ch + 1} 列`,
-      attr: { title: "跳转到正文位置" },
+    card.addEventListener("click", (event) => {
+      const target = event.target;
+      if (target instanceof HTMLElement && target.closest("button, textarea, input, select")) return;
+      void this.plugin.jumpToAnnotation(note, annotation);
     });
-    anchorButton.addEventListener("click", () => void this.plugin.jumpToAnnotation(note, annotation));
+    const itemHeader = card.createDiv({ cls: "annotation-sidebar__item-header" });
+    const typeIcon = itemHeader.createSpan({ cls: "annotation-sidebar__type-icon" });
+    typeIcon.setAttribute("style", `color:${annotationTypeColor(this.plugin, annotation.type)};`);
+    typeIcon.setAttribute("aria-hidden", "true");
+    setIcon(typeIcon, annotationTypeIcon(this.plugin, annotation.type));
 
     const colorPicker = itemHeader.createDiv({
       cls: "annotation-sidebar__color-picker",
       attr: { "aria-label": "鎵规敞棰滆壊" },
     });
-    for (const color of ANNOTATION_COLORS) {
+    for (const { name: type } of this.plugin.settings.annotationTypes) {
       const option = colorPicker.createEl("button", {
-        cls: `annotation-sidebar__color-option ${annotationColorClass(color)}${color === annotation.color ? " is-selected" : ""}`,
+        cls: `annotation-sidebar__color-option ${annotationColorClass(type)}${type === annotation.type ? " is-selected" : ""}`,
         attr: {
           type: "button",
-          "data-annotation-color": color,
-          "aria-label": colorLabel(color),
-          "aria-pressed": String(color === annotation.color),
+          "data-annotation-type": type,
+          "aria-label": type,
+          "aria-pressed": String(type === annotation.type),
         },
       });
-      setTooltip(option, colorLabel(color));
+      option.setAttribute("style", `background-color:${annotationTypeColor(this.plugin, type)};`);
+      setIcon(option, annotationTypeIcon(this.plugin, type));
+      setTooltip(option, type);
       option.addEventListener("click", (event) => {
         event.preventDefault();
         event.stopPropagation();
-        void this.plugin.setAnnotationColor(note, annotation.id, color);
+        void this.plugin.setAnnotationType(note, annotation.id, type);
       });
     }
 
     const itemActions = itemHeader.createDiv({ cls: "annotation-sidebar__item-actions" });
     itemActions.appendChild(this.createIconButton("crosshair", "重定位批注到当前选区或光标", () => {
       void this.plugin.relocateAnnotation(note, annotation.id);
-    }));
-    itemActions.appendChild(this.createIconButton("locate-fixed", "跳转到正文位置", () => {
-      void this.plugin.jumpToAnnotation(note, annotation);
     }));
     itemActions.appendChild(this.createIconButton("trash-2", "删除批注", () => {
       this.plugin.confirmDelete(annotation, async () => {
@@ -318,6 +318,7 @@ export class AnnotationView extends ItemView {
     textarea.addEventListener("blur", () => {
       this.flushSave(note, annotation.id, textarea.value, status);
     });
+    card.setAttribute("style", annotationTypeStyle(this.plugin, annotation.type));
   }
 
   private queueSave(note: TFile, id: string, value: string, status: HTMLElement): void {
@@ -426,14 +427,4 @@ function formatTimestamp(value: string): string {
     hour: "2-digit",
     minute: "2-digit",
   }).format(date);
-}
-
-function colorLabel(color: AnnotationColor): string {
-  const labels: Record<AnnotationColor, string> = {
-    yellow: "\u9ec4\u8272",
-    red: "\u7ea2\u8272",
-    blue: "\u84dd\u8272",
-    green: "\u7eff\u8272",
-  };
-  return labels[color];
 }

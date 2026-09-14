@@ -6,7 +6,7 @@ import {
   serializeAnnotationDocument,
   sourcePathForAnnotation,
 } from "./core";
-import type { Annotation, AnnotationAnchor, AnnotationColor, AnnotationDocument } from "./types";
+import type { Annotation, AnnotationAnchor, AnnotationType, AnnotationDocument } from "./types";
 
 type DocumentUpdater = (document: AnnotationDocument) => AnnotationDocument;
 
@@ -81,24 +81,25 @@ export class AnnotationRepository {
     });
   }
 
-  async updateColor(
+  async updateType(
     note: TFile,
     id: string,
-    color: AnnotationColor,
+    type: AnnotationType,
   ): Promise<AnnotationDocument> {
     const now = new Date().toISOString();
     return this.mutate(note, (document) => {
       if (!document.annotations.some((annotation) => annotation.id === id)) {
-        throw new Error(`鎵规敞涓嶅瓨鍦ㄦ垨宸茶鍒犻櫎锛?{id}`);
+        throw new Error(`批注不存在或已被删除：${id}`);
       }
       return {
         ...document,
         annotations: document.annotations.map((annotation) => annotation.id === id
-          ? { ...annotation, color, updatedAt: now }
+          ? { ...annotation, type, updatedAt: now }
           : annotation),
       };
     });
   }
+
 
   async remove(note: TFile, id: string): Promise<AnnotationDocument> {
     const document = await this.mutate(note, (current) => ({

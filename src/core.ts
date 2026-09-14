@@ -1,9 +1,8 @@
 import {
   ANNOTATION_DOCUMENT_VERSION,
-  ANNOTATION_COLORS,
-  DEFAULT_ANNOTATION_COLOR,
+  DEFAULT_ANNOTATION_TYPE,
   type Annotation,
-  type AnnotationColor,
+  type AnnotationType,
   type AnnotationAnchor,
   type AnnotationDocument,
   type ResolvedAnchor,
@@ -13,10 +12,8 @@ import {
 export const DEFAULT_ANNOTATION_SUFFIX = ".annotations.json";
 export const ANCHOR_CONTEXT_LENGTH = 48;
 
-export function parseAnnotationColor(value: unknown): AnnotationColor {
-  return typeof value === "string" && (ANNOTATION_COLORS as readonly string[]).includes(value)
-    ? value as AnnotationColor
-    : DEFAULT_ANNOTATION_COLOR;
+export function parseAnnotationType(value: unknown): AnnotationType {
+  return typeof value === "string" && value.trim().length > 0 ? value : DEFAULT_ANNOTATION_TYPE;
 }
 
 export class AnnotationFormatError extends Error {
@@ -142,7 +139,7 @@ export function createAnnotation(
   return {
     id,
     content: "",
-    color: DEFAULT_ANNOTATION_COLOR,
+    type: DEFAULT_ANNOTATION_TYPE,
     createdAt: now,
     updatedAt: now,
     anchor,
@@ -189,10 +186,10 @@ function parseAnnotation(value: unknown, index: number): Annotation {
     throw new AnnotationFormatError(`annotations[${index}].anchor.kind 无效`);
   }
 
-  return {
+  const annotation: Annotation = {
     id: requireString(value.id, `annotations[${index}].id`),
     content: requireString(value.content, `annotations[${index}].content`),
-    color: parseAnnotationColor(value.color),
+    type: parseAnnotationType(value.type),
     createdAt: requireString(value.createdAt, `annotations[${index}].createdAt`),
     updatedAt: requireString(value.updatedAt, `annotations[${index}].updatedAt`),
     anchor: {
@@ -204,6 +201,7 @@ function parseAnnotation(value: unknown, index: number): Annotation {
       suffix: requireString(anchor.suffix, `annotations[${index}].anchor.suffix`),
     },
   };
+  return annotation;
 }
 
 function parsePosition(value: unknown, path: string): TextPosition {

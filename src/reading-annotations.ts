@@ -3,15 +3,16 @@ import {
   MarkdownPostProcessorContext,
   MarkdownRenderChild,
   TFile,
+  setIcon,
 } from "obsidian";
 import {
   annotationBelongsToSection,
   compareAnnotationsForDisplay,
   shouldDisplayAnnotationContent,
 } from "./inline-display";
-import { annotationColorClass } from "./editor-highlights";
+import { annotationColorClass, annotationTypeIcon, annotationTypeStyle } from "./editor-highlights";
 import type AnnotationSidebarPlugin from "./main";
-import type { AnnotationColor, AnnotationDocument } from "./types";
+import type { AnnotationType, AnnotationDocument } from "./types";
 
 export class ReadingAnnotationRenderer {
   readonly postProcessor: MarkdownPostProcessor;
@@ -57,7 +58,7 @@ export class ReadingAnnotationRenderer {
       container.appendChild(this.createAnnotationElement(
         annotation.id,
         annotation.content,
-        annotation.color,
+        annotation.type,
         context.sourcePath,
         element.ownerDocument,
       ));
@@ -94,17 +95,24 @@ export class ReadingAnnotationRenderer {
   private createAnnotationElement(
     annotationId: string,
     content: string,
-    color: AnnotationColor,
+    type: AnnotationType,
     sourcePath: string,
     ownerDocument: Document,
   ): HTMLElement {
     const button = ownerDocument.createElement("button");
     button.type = "button";
-    button.className = `annotation-sidebar-reading-content__item ${annotationColorClass(color)}`;
+    button.className = `annotation-sidebar-reading-content__item ${annotationColorClass(type)}`;
+    button.setAttribute("style", annotationTypeStyle(this.plugin, type));
     button.dataset.annotationId = annotationId;
     button.setAttribute("aria-label", "在批注侧栏中打开此批注");
     button.title = "点击在批注侧栏中打开";
-    button.textContent = content;
+    const icon = ownerDocument.createElement("span");
+    icon.className = "annotation-sidebar-reading-content__icon";
+    setIcon(icon, annotationTypeIcon(this.plugin, type));
+    button.appendChild(icon);
+    const text = ownerDocument.createElement("span");
+    text.textContent = content;
+    button.appendChild(text);
     const open = (event: Event) => {
       event.preventDefault();
       event.stopPropagation();

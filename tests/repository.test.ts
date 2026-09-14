@@ -140,7 +140,7 @@ describe("AnnotationRepository", () => {
     expect(relocated?.updatedAt).not.toBe(original.updatedAt);
   });
 
-  it("updates an annotation color without changing its anchor or identity", async () => {
+  it("updates an annotation type without changing its anchor or identity", async () => {
     const note = makeFile("Note.md");
     const original = createAnnotation(
       createAnchor("target", 0, 6),
@@ -150,14 +150,14 @@ describe("AnnotationRepository", () => {
     original.content = "keep this comment";
     await repository.add(note, original);
 
-    await repository.updateColor(note, original.id, "blue");
+    await repository.updateType(note, original.id, "note");
 
     const updated = (await repository.load(note)).annotations[0];
     expect(updated?.id).toBe("a1");
     expect(updated?.content).toBe("keep this comment");
     expect(updated?.createdAt).toBe("2026-09-09T00:00:00.000Z");
     expect(updated?.anchor).toEqual(original.anchor);
-    expect(updated?.color).toBe("blue");
+    expect(updated?.type).toBe("note");
     expect(updated?.updatedAt).not.toBe(original.updatedAt);
   });
 
@@ -195,11 +195,11 @@ describe("AnnotationRepository", () => {
     expect(vault.files.has("Note.annotations.json")).toBe(false);
   });
 
-  it("does not recreate a deleted annotation when changing color", async () => {
+  it("does not recreate a deleted annotation when changing type", async () => {
     const note = makeFile("Note.md");
 
-    await expect(repository.updateColor(note, "deleted", "red"))
-      .rejects.toThrow("鎵规敞涓嶅瓨鍦ㄦ垨宸茶鍒犻櫎");
+    await expect(repository.updateType(note, "deleted", "error"))
+      .rejects.toThrow("批注不存在或已被删除");
     expect(vault.files.has("Note.annotations.json")).toBe(false);
   });
 });

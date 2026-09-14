@@ -44,7 +44,7 @@ describe("inline display toggle", () => {
     isShowingNote: ReturnType<typeof vi.fn>;
     refresh: ReturnType<typeof vi.fn>;
     syncInlineDisplayToggle: ReturnType<typeof vi.fn>;
-    syncAnnotationColor: ReturnType<typeof vi.fn>;
+    syncAnnotationType: ReturnType<typeof vi.fn>;
   };
   let invalidateReading: ReturnType<typeof vi.fn>;
   let refreshEditor: ReturnType<typeof vi.fn>;
@@ -56,7 +56,7 @@ describe("inline display toggle", () => {
       isShowingNote: vi.fn(() => true),
       refresh: vi.fn(),
       syncInlineDisplayToggle: vi.fn(),
-      syncAnnotationColor: vi.fn(),
+      syncAnnotationType: vi.fn(),
     };
     invalidateReading = vi.fn();
     refreshEditor = vi.fn();
@@ -93,19 +93,19 @@ describe("inline display toggle", () => {
   });
 
   it("updates annotation color and synchronizes inline renderers without rebuilding sidebar", async () => {
-    const updateColor = vi.fn().mockResolvedValue(undefined);
+    const updateType = vi.fn().mockResolvedValue(undefined);
     const refreshInlineDisplays = vi.fn();
     const note = { path: "Note.md" };
     Object.assign(plugin, {
-      repository: { updateColor },
+      repository: { updateType },
       refreshInlineDisplays,
     });
 
-    await plugin.setAnnotationColor(note as never, "a1", "green");
+    await plugin.setAnnotationType(note as never, "a1", "hint");
 
-    expect(updateColor).toHaveBeenCalledWith(note, "a1", "green");
+    expect(updateType).toHaveBeenCalledWith(note, "a1", "hint");
     expect(refreshInlineDisplays).toHaveBeenCalledWith("Note.md");
-    expect(sidebar.syncAnnotationColor).toHaveBeenCalledWith("a1", "green");
+    expect(sidebar.syncAnnotationType).toHaveBeenCalledWith("a1", "hint");
     expect(sidebar.refresh).not.toHaveBeenCalled();
   });
 

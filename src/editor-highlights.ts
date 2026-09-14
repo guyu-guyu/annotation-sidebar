@@ -7,14 +7,14 @@ import {
   type DecorationSet,
   type ViewUpdate,
 } from "@codemirror/view";
-import { TFile, editorInfoField } from "obsidian";
+import { TFile, editorInfoField, setIcon } from "obsidian";
 import {
   shouldDisplayAnnotationContent,
 } from "./inline-display";
 import { resolveAnchor } from "./core";
 import { inlineWidgetPlacement, mapResolvedAnchor } from "./editor-positions";
 import type AnnotationSidebarPlugin from "./main";
-import type { Annotation, AnnotationColor, ResolvedAnchor } from "./types";
+import { normalizeAnnotationIcon, type Annotation, type AnnotationType, type ResolvedAnchor } from "./types";
 
 interface LoadedAnnotations {
   annotations: Annotation[];
@@ -42,8 +42,28 @@ interface HighlightController {
 
 const controllers = new Set<HighlightController>();
 
-export function annotationColorClass(color: AnnotationColor): string {
-  return `annotation-sidebar-color-${color}`;
+export function annotationColorClass(type: AnnotationType): string {
+  return "annotation-sidebar-type";
+}
+
+export function annotationTypeStyle(plugin: AnnotationSidebarPlugin, type: AnnotationType): string {
+  const color = annotationTypeColor(plugin, type);
+  return `--annotation-sidebar-color:${color};--annotation-sidebar-color-bg:${toTransparentColor(color)};background-color:${toTransparentColor(color)};border-bottom-color:${color};`;
+}
+
+export function annotationTypeColor(plugin: AnnotationSidebarPlugin, type: AnnotationType): string {
+  return plugin.settings.annotationTypes?.find((item) => item.name === type)?.color ?? "#888888";
+}
+
+export function annotationTypeIcon(plugin: AnnotationSidebarPlugin, type: AnnotationType): string {
+  return normalizeAnnotationIcon(plugin.settings.annotationTypes?.find((item) => item.name === type)?.icon ?? "circle");
+}
+
+function toTransparentColor(value: string): string {
+  const match = value.trim().match(/^#([0-9a-f]{6})$/i);
+  if (!match) return `color-mix(in srgb, ${value} 18%, transparent)`;
+  const hex = match[1] ?? "888888";
+  return `rgba(${parseInt(hex.slice(0, 2), 16)}, ${parseInt(hex.slice(2, 4), 16)}, ${parseInt(hex.slice(4, 6), 16)}, 0.18)`;
 }
 
 export function createAnnotationEditorExtension(plugin: AnnotationSidebarPlugin): Extension {
@@ -169,17 +189,20 @@ function buildDecorations(
           widget: new PositionAnnotationWidget(
             annotation.id,
             filePath,
-            annotation.color,
+            annotation.type,
+            annotationTypeIcon(plugin, annotation.type),
+            annotationTypeStyle(plugin, annotation.type),
             () => void plugin.openAnnotationInSidebar(filePath, annotation.id),
           ),
           side: 1,
         }).range(anchor.from));
       } else {
         annotationDecorations.push(Decoration.mark({
-          class: `annotation-sidebar-highlight ${annotationColorClass(annotation.color)}`,
+          class: `annotation-sidebar-highlight ${annotationColorClass(annotation.type)}`,
           attributes: {
             "data-annotation-id": annotation.id,
             title: "此处有批注",
+            style: annotationTypeStyle(plugin, annotation.type),
           },
         }).range(anchor.from, anchor.to));
       }
@@ -194,7 +217,9 @@ function buildDecorations(
             annotation.id,
             annotation.content,
             filePath,
-            annotation.color,
+            annotation.type,
+            annotationTypeIcon(plugin, annotation.type),
+            annotationTypeStyle(plugin, annotation.type),
             () => void plugin.openAnnotationInSidebar(filePath, annotation.id),
           ),
         }).range(placement.position));
@@ -222,7 +247,9 @@ class PositionAnnotationWidget extends WidgetType {
   constructor(
     private readonly annotationId: string,
     private readonly filePath: string,
-    private readonly color: AnnotationColor,
+    private readonly type: AnnotationType,
+    private readonly icon: string,
+    private readonly style: string,
     private readonly onClick: () => void,
   ) {
     super();
@@ -231,12 +258,16 @@ class PositionAnnotationWidget extends WidgetType {
   eq(other: PositionAnnotationWidget): boolean {
     return other.annotationId === this.annotationId
       && other.filePath === this.filePath
-      && other.color === this.color;
+      && other.type === this.type
+      && other.icon === this.icon
+      && other.style === this.style;
   }
 
   toDOM(): HTMLElement {
     const marker = document.createElement("span");
-    marker.className = `annotation-sidebar-position-marker ${annotationColorClass(this.color)}`;
+    marker.className = `annotation-sidebar-position-marker ${annotationColorClass(this.type)}`;
+    marker.setAttribute("style", `${this.style};background-color:var(--annotation-sidebar-color);`);
+    setIcon(marker, this.icon);
     marker.dataset.annotationId = this.annotationId;
     marker.setAttribute("aria-label", "此处有位置批注");
     marker.title = "此处有位置批注";
@@ -264,7 +295,9 @@ class AnnotationContentWidget extends WidgetType {
     private readonly annotationId: string,
     private readonly content: string,
     private readonly filePath: string,
-    private readonly color: AnnotationColor,
+    private readonly type: AnnotationType,
+    private readonly icon: string,
+    private readonly style: string,
     private readonly onClick: () => void,
   ) {
     super();
@@ -274,12 +307,15 @@ class AnnotationContentWidget extends WidgetType {
     return other.annotationId === this.annotationId
       && other.content === this.content
       && other.filePath === this.filePath
-      && other.color === this.color;
+      && other.type === this.type
+      && other.icon === this.icon
+      && other.style === this.style;
   }
 
   toDOM(): HTMLElement {
     const wrapper = document.createElement("div");
-    wrapper.className = `annotation-sidebar-inline-content ${annotationColorClass(this.color)}`;
+    wrapper.className = `annotation-sidebar-inline-content ${annotationColorClass(this.type)}`;
+    wrapper.setAttribute("style", this.style);
     wrapper.dataset.annotationId = this.annotationId;
     wrapper.tabIndex = 0;
     wrapper.setAttribute("role", "button");
@@ -288,7 +324,13 @@ class AnnotationContentWidget extends WidgetType {
 
     const body = document.createElement("div");
     body.className = "annotation-sidebar-inline-content__body";
-    body.textContent = this.content;
+    const icon = document.createElement("span");
+    icon.className = "annotation-sidebar-inline-content__icon";
+    setIcon(icon, this.icon);
+    body.appendChild(icon);
+    const text = document.createElement("span");
+    text.textContent = this.content;
+    body.appendChild(text);
     wrapper.appendChild(body);
 
     wrapper.addEventListener("click", (event) => {
