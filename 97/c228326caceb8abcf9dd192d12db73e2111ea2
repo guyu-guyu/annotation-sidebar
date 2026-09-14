@@ -1,0 +1,123 @@
+src/repository.ts
+  s_4c24c6ca8c7ca7::t_6cd659ffd053d3 103
+  s_4c24c6ca8c7ca7::t_38742c2b8fc45a 9,84,87,97
+  s_4c24c6ca8c7ca7::t_3bbc32aa6b6d00 92
+src/editor-highlights.ts
+  s_4c24c6ca8c7ca7::t_7622be4c545ff8 17,59
+  s_4c24c6ca8c7ca7::t_0c63eaa1e7d0fe 46
+  s_4c24c6ca8c7ca7::t_ca3ac41fe88e29 49,194,222
+  s_4c24c6ca8c7ca7::t_5e01f6d019c793 51,269
+  s_4c24c6ca8c7ca7::t_f1a8592664fbb8 56-57,62-64,66
+  s_4c24c6ca8c7ca7::t_7a28c02ae9507f 205
+  s_4c24c6ca8c7ca7::t_eff9132c9cbd36 50,52-55
+  s_4c24c6ca8c7ca7::t_391a28ee01439f 65
+  s_4c24c6ca8c7ca7::t_9f38248256e2ea 10,47,58,60-61,193,221,251,262,270,299,311,327-333
+  s_4c24c6ca8c7ca7::t_f1661f23d7b922 45,192,201,220,250,252,261,263,268,298,300,310,312,317-318
+  s_4c24c6ca8c7ca7::t_f8b53e7151da9c 48
+tests/core.test.ts
+  s_4c24c6ca8c7ca7::t_7de5afc337f032 79-81,95,101-102,104-105,108-111,116
+README.md
+  s_4c24c6ca8c7ca7::t_207056f8bbd334 103
+  s_4c24c6ca8c7ca7::t_562e85cd86b6a1 63,99,101
+src/settings.ts
+  s_4c24c6ca8c7ca7::t_8c486b77a5f731 1,116-118,150-154,156-166,168-169,171-182
+  s_4c24c6ca8c7ca7::t_bdcb9df4590842 144
+  s_4c24c6ca8c7ca7::t_859612ee5189df 121-123,155,170
+  s_4c24c6ca8c7ca7::t_66d2a9d2b8393a 119
+  s_4c24c6ca8c7ca7::t_3fa25d8be038db 92,95
+  s_4c24c6ca8c7ca7::t_409251fadf151f 96-97
+  s_4c24c6ca8c7ca7::t_5816b416a8fe48 124
+  s_4c24c6ca8c7ca7::t_8cc187dfa839cf 12,21,93-94,98-115,125,132-143,145-147
+  s_4c24c6ca8c7ca7::t_7622be4c545ff8 4,120,167
+  s_4c24c6ca8c7ca7::t_6e93e7ee8a5caa 126-131
+  s_4c24c6ca8c7ca7::t_f3ff4cdc022071 183
+src/annotation-view.ts
+  s_4c24c6ca8c7ca7::t_a2be2baa5b87ab 15,76,82-84,86-87,224,244,247-249,254,258,321
+  s_4c24c6ca8c7ca7::t_ff7d29152aceb6 10,253
+  s_4c24c6ca8c7ca7::t_eff9132c9cbd36 252
+  s_4c24c6ca8c7ca7::t_0e7d6e757a0b69 81,242
+  s_4c24c6ca8c7ca7::t_1200bb1e3df64e 91
+  s_4c24c6ca8c7ca7::t_6a387cd7fdd06b 9
+  s_4c24c6ca8c7ca7::t_b0ee57f31dfdd0 233-236
+  s_4c24c6ca8c7ca7::t_e8b2f920c00728 227-230
+  s_4c24c6ca8c7ca7::t_4bacc38438bc97 232
+styles.css
+  s_4c24c6ca8c7ca7::t_840e224a810388 161,167-168,171,174
+  s_4c24c6ca8c7ca7::t_33b09e2dea4950 6,52
+  s_4c24c6ca8c7ca7::t_5816b416a8fe48 205-209
+  s_4c24c6ca8c7ca7::t_86e60733befc43 45-51
+  s_4c24c6ca8c7ca7::t_e8b2f920c00728 135-140
+  s_4c24c6ca8c7ca7::t_07b1c68c0feb40 180-186,188,191,322-330,332,335-336,362-364,368-378,395-397
+  s_4c24c6ca8c7ca7::t_659c92a2334319 7-11,13-15,21-31
+  s_4c24c6ca8c7ca7::t_f893be48561e24 12,16-20,32-44
+  s_4c24c6ca8c7ca7::t_3270bc0f721510 141,316,408
+  s_4c24c6ca8c7ca7::t_b0ee57f31dfdd0 204,212
+  s_4c24c6ca8c7ca7::t_589a24cb271ac6 175
+  s_4c24c6ca8c7ca7::t_fd0c48ffb677e1 192
+docs/annotation-file.schema.json
+  s_4c24c6ca8c7ca7::t_37fcefc28a9675 50
+  s_4c24c6ca8c7ca7::t_9998df7c214a86 44
+tests/repository.test.ts
+  s_4c24c6ca8c7ca7::t_4707887d0390b4 143,153,160,198,201-202
+src/core.ts
+  s_4c24c6ca8c7ca7::t_9dcfcfa609b0a9 189
+  s_4c24c6ca8c7ca7::t_6eef0e90ca69d4 204
+  s_4c24c6ca8c7ca7::t_84b75be2c19fa9 16,192
+  s_4c24c6ca8c7ca7::t_75080e413b89c6 3,5,15,142
+skills/annotation-sidebar/SKILL.md
+  s_4c24c6ca8c7ca7::t_cfd74a024652e0 1-71
+src/main.ts
+  s_4c24c6ca8c7ca7::t_a81bad6aa2bf3a 230
+  s_4c24c6ca8c7ca7::t_a65e95dc5ddf94 23,209,212,215,218,333
+  s_4c24c6ca8c7ca7::t_3b955e9b934afd 232-233
+  s_4c24c6ca8c7ca7::t_a3d01e24ff6212 234-237
+  s_4c24c6ca8c7ca7::t_68eb2b421675ee 354-356
+  s_4c24c6ca8c7ca7::t_f8cbb8ce6e4e8d 225,231
+  s_4c24c6ca8c7ca7::t_53bf404e0c0c65 350-352,358
+  s_4c24c6ca8c7ca7::t_d4e4584960cc07 224,226-229,353,357
+tests/reading-annotations.test.ts
+  s_4c24c6ca8c7ca7::t_3bbc32aa6b6d00 135
+  s_4c24c6ca8c7ca7::t_4707887d0390b4 109
+  s_4c24c6ca8c7ca7::t_717a19218e3611 136
+  s_4c24c6ca8c7ca7::t_2459a66d6f2d3b 15,111
+tests/inline-toggle.test.ts
+  s_4c24c6ca8c7ca7::t_4707887d0390b4 96,100,104,106,108
+  s_4c24c6ca8c7ca7::t_517e938a45da63 47,59
+docs/DESIGN.md
+  s_4c24c6ca8c7ca7::t_b8350b9308781d 3
+  s_4c24c6ca8c7ca7::t_5b97671e6dc801 5
+skills/annotation-sidebar/agents/openai.yaml
+  s_4c24c6ca8c7ca7::t_cfd74a024652e0 1-4
+skills/annotation-sidebar/references/format.md
+  s_4c24c6ca8c7ca7::t_cfd74a024652e0 1-22
+docs/DEVELOPMENT.md
+  s_4c24c6ca8c7ca7::t_6d6b92e2373a94 5
+  s_4c24c6ca8c7ca7::t_3540b1aef6ddf3 3
+src/types.ts
+  s_4c24c6ca8c7ca7::t_2e481ac3364130 47
+  s_4c24c6ca8c7ca7::t_1aa24b24efab51 3,5-7,9-11,18
+  s_4c24c6ca8c7ca7::t_49e13191dfa868 12-15,25-27
+  s_4c24c6ca8c7ca7::t_a8448b45cd7dcd 8
+  s_4c24c6ca8c7ca7::t_5816b416a8fe48 20-22
+  s_4c24c6ca8c7ca7::t_5fc2f59d5f4824 16-17
+  s_4c24c6ca8c7ca7::t_bc6fb8038a853f 19
+src/reading-annotations.ts
+  s_4c24c6ca8c7ca7::t_4baab50a12b7c4 15,61,98,104-105
+  s_4c24c6ca8c7ca7::t_ff7d29152aceb6 6,13,109-115
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "97c228326caceb8abcf9dd192d12db73e2111ea2",
+  "prompts": {},
+  "sessions": {
+    "s_4c24c6ca8c7ca7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a09da0-526c-7a11-8f6e-d810a14d243a",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "leijieliu <leijieliu@tencent.com>"
+    }
+  }
+}
