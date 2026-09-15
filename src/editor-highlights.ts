@@ -264,7 +264,7 @@ class PositionAnnotationWidget extends WidgetType {
   }
 
   toDOM(): HTMLElement {
-    const marker = document.createElement("span");
+    const marker = document.createSpan();
     marker.className = `annotation-sidebar-position-marker ${annotationColorClass(this.type)}`;
     marker.setAttribute("style", `${this.style};background-color:var(--annotation-sidebar-color);`);
     setIcon(marker, this.icon);
@@ -313,7 +313,7 @@ class AnnotationContentWidget extends WidgetType {
   }
 
   toDOM(): HTMLElement {
-    const wrapper = document.createElement("div");
+    const wrapper = document.createDiv();
     wrapper.className = `annotation-sidebar-inline-content ${annotationColorClass(this.type)}`;
     wrapper.setAttribute("style", this.style);
     wrapper.dataset.annotationId = this.annotationId;
@@ -322,13 +322,13 @@ class AnnotationContentWidget extends WidgetType {
     wrapper.setAttribute("aria-label", "打开此批注");
     wrapper.title = "点击在批注侧栏中打开";
 
-    const body = document.createElement("div");
+    const body = document.createDiv();
     body.className = "annotation-sidebar-inline-content__body";
-    const icon = document.createElement("span");
+    const icon = document.createSpan();
     icon.className = "annotation-sidebar-inline-content__icon";
     setIcon(icon, this.icon);
     body.appendChild(icon);
-    const text = document.createElement("span");
+    const text = document.createSpan();
     text.textContent = this.content;
     body.appendChild(text);
     wrapper.appendChild(body);

@@ -77,6 +77,18 @@ class FakeDocument {
   createElement(tagName: string): FakeElement {
     return new FakeElement(tagName, this);
   }
+
+  createEl(tagName: string): FakeElement {
+    return this.createElement(tagName);
+  }
+
+  createDiv(): FakeElement {
+    return this.createElement("div");
+  }
+
+  createSpan(): FakeElement {
+    return this.createElement("span");
+  }
 }
 
 interface FakeEvent {

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.5.1 - 2026-09-15
+
+- Declare the Obsidian APIs the plugin actually relies on, and raise `minAppVersion` to 1.7.2 to match (`revealLeaf`, `FileManager.trashFile`, `setTooltip`).
+- Keep the sidebar leaf in place when the plugin unloads, so Obsidian remembers a user-moved sidebar position.
+- Use `FileManager.trashFile()` instead of `Vault.delete()` when removing an emptied annotation file, so the user's trash preference is respected.
+- Build DOM elements with Obsidian's `createEl`/`createDiv`/`createSpan` helpers instead of `document.createElement`.
+- Use a settings heading via `Setting.setHeading()` and drop the deprecated `setDynamicTooltip()` call.
+- Rename the open-sidebar command ID to `open-sidebar`; Obsidian already namespaces command IDs with the plugin ID.
+- List `@codemirror/state` and `@codemirror/view` as dependencies, as they are runtime imports.
+
 ## 0.5.0 - 2026-09-15
 
 - Add a Lucide icon picker for annotation types in settings.

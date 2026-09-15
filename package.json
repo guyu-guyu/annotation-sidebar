@@ -1,6 +1,6 @@
 {
   "name": "obsidian-annotation-sidebar",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Per-note annotations in an editable Obsidian sidebar.",
   "main": "dist/main.js",
   "type": "module",
@@ -17,6 +17,10 @@
     "notes"
   ],
   "license": "MIT",
+  "dependencies": {
+    "@codemirror/state": "^6.5.0",
+    "@codemirror/view": "^6.38.6"
+  },
   "devDependencies": {
     "@types/node": "^22.15.17",
     "esbuild": "^0.28.2",

@@ -28,7 +28,7 @@ export class AnnotationSidebarSettingTab extends PluginSettingTab {
 
   display(): void {
     this.containerEl.empty();
-    this.containerEl.createEl("h2", { text: "批注侧栏" });
+    new Setting(this.containerEl).setName("批注侧栏").setHeading();
 
     new Setting(this.containerEl)
       .setName("批注文件后缀")
@@ -54,7 +54,6 @@ export class AnnotationSidebarSettingTab extends PluginSettingTab {
       .setDesc("停止输入后等待多长时间写入批注文件。")
       .addSlider((slider) => slider
         .setLimits(150, 2000, 50)
-        .setDynamicTooltip()
         .setValue(this.plugin.settings.autosaveDelay)
         .onChange(async (value) => {
           this.plugin.settings.autosaveDelay = value;
@@ -115,7 +114,7 @@ export class AnnotationSidebarSettingTab extends PluginSettingTab {
         }))
         .addButton((button) => {
           button.setButtonText("");
-          button.setTooltip("icon");
+          button.setTooltip("选择图标");
           button.buttonEl.classList.add("annotation-sidebar-icon-button");
           setIcon(button.buttonEl, normalizeAnnotationIcon(type.icon));
           button.onClick(() => new IconPickerModal(this.plugin, type, (icon) => {
@@ -165,13 +164,7 @@ class IconPickerModal extends Modal {
       getIconIds().filter((id) => id.includes(query.toLowerCase())).slice(0, 300).forEach((id) => {
         const button = grid.createEl("button", { attr: { type: "button", title: id, "aria-label": id } });
         setIcon(button, normalizeAnnotationIcon(id));
-        button.addEventListener("click", async () => {
-          this.type.icon = id;
-          this.onSelect(id);
-          await this.plugin.saveSettings();
-          this.plugin.refreshInlineDisplays();
-          this.close();
-        });
+        button.addEventListener("click", () => void this.chooseIcon(id));
       });
     };
     search.addEventListener("input", () => render(search.value));
@@ -180,4 +173,12 @@ class IconPickerModal extends Modal {
   }
 
   onClose(): void { this.contentEl.empty(); }
+
+  private async chooseIcon(id: string): Promise<void> {
+    this.type.icon = id;
+    this.onSelect(id);
+    await this.plugin.saveSettings();
+    this.plugin.refreshInlineDisplays();
+    this.close();
+  }
 }

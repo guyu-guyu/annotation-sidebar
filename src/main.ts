@@ -59,7 +59,7 @@ export default class AnnotationSidebarPlugin extends Plugin {
     });
 
     this.addCommand({
-      id: "open-annotation-sidebar",
+      id: "open-sidebar",
       name: "打开批注侧栏",
       callback: () => void this.activateView(),
     });
@@ -139,7 +139,9 @@ export default class AnnotationSidebarPlugin extends Plugin {
   }
 
   onunload(): void {
-    this.app.workspace.detachLeavesOfType(ANNOTATION_VIEW_TYPE);
+    // Leaves are intentionally left in place: Obsidian remembers where the user moved
+    // the sidebar, and detaching them here would reset that position on the next load.
+    this.readingAnnotations.invalidate();
   }
 
   getCurrentNote(): TFile | null {

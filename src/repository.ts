@@ -112,7 +112,7 @@ export class AnnotationRepository {
       const file = this.app.vault.getAbstractFileByPath(path);
       if (file instanceof TFile) {
         this.beforeWrite(path);
-        await this.app.vault.delete(file);
+        await this.app.fileManager.trashFile(file);
       }
     }
     return document;

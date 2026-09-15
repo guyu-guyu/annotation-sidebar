@@ -1,6 +1,5 @@
 import {
   ItemView,
-  Notice,
   TFile,
   WorkspaceLeaf,
   setIcon,
@@ -412,7 +411,7 @@ export class AnnotationView extends ItemView {
     onClick: () => void,
     extraClass?: string,
   ): HTMLButtonElement {
-    const button = document.createElement("button");
+    const button = document.createEl("button");
     button.className = `clickable-icon annotation-sidebar__icon-button${extraClass ? ` ${extraClass}` : ""}`;
     button.type = "button";
     button.setAttribute("aria-label", tooltip);

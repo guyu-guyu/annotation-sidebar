@@ -51,7 +51,7 @@ export class ReadingAnnotationRenderer {
     if (annotations.length === 0) return;
     annotations.forEach((annotation) => rendered.add(annotation.id));
 
-    const container = element.ownerDocument.createElement("div");
+    const container = element.ownerDocument.createDiv();
     container.className = "annotation-sidebar-reading-content";
     container.dataset.annotationSource = context.sourcePath;
     for (const annotation of annotations) {
@@ -99,18 +99,18 @@ export class ReadingAnnotationRenderer {
     sourcePath: string,
     ownerDocument: Document,
   ): HTMLElement {
-    const button = ownerDocument.createElement("button");
+    const button = ownerDocument.createEl("button");
     button.type = "button";
     button.className = `annotation-sidebar-reading-content__item ${annotationColorClass(type)}`;
     button.setAttribute("style", annotationTypeStyle(this.plugin, type));
     button.dataset.annotationId = annotationId;
     button.setAttribute("aria-label", "在批注侧栏中打开此批注");
     button.title = "点击在批注侧栏中打开";
-    const icon = ownerDocument.createElement("span");
+    const icon = ownerDocument.createSpan();
     icon.className = "annotation-sidebar-reading-content__icon";
     setIcon(icon, annotationTypeIcon(this.plugin, type));
     button.appendChild(icon);
-    const text = ownerDocument.createElement("span");
+    const text = ownerDocument.createSpan();
     text.textContent = content;
     button.appendChild(text);
     const open = (event: Event) => {
