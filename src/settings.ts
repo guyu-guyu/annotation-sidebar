@@ -1,4 +1,10 @@
-import { Modal, Notice, PluginSettingTab, Setting, getIconIds, setIcon } from "obsidian";
+import {
+  Modal,
+  PluginSettingTab,
+  getIconIds,
+  setIcon,
+  type SettingDefinitionItem,
+} from "obsidian";
 import { DEFAULT_ANNOTATION_SUFFIX, normalizeSuffix } from "./core";
 import type AnnotationSidebarPlugin from "./main";
 import { DEFAULT_ANNOTATION_TYPES, normalizeAnnotationIcon, type AnnotationTypeConfig } from "./types";
@@ -21,129 +27,211 @@ export const DEFAULT_SETTINGS: AnnotationSidebarSettings = {
   annotationTypes: DEFAULT_ANNOTATION_TYPES.map((item) => ({ ...item })),
 };
 
+/** Control keys of the shape `type:<index>:<field>`, used by the annotation type list. */
+const TYPE_CONTROL_KEY = /^type:(\d+):(name|color)$/;
+
 export class AnnotationSidebarSettingTab extends PluginSettingTab {
   constructor(private readonly plugin: AnnotationSidebarPlugin) {
     super(plugin.app, plugin);
   }
 
-  display(): void {
-    this.containerEl.empty();
-    new Setting(this.containerEl).setName("批注侧栏").setHeading();
-
-    new Setting(this.containerEl)
-      .setName("批注文件后缀")
-      .setDesc("默认情况下，Note.md 的批注保存在 Note.annotations.json。修改后不会自动迁移已有文件。")
-      .addText((text) => text
-        .setPlaceholder(DEFAULT_ANNOTATION_SUFFIX)
-        .setValue(this.plugin.settings.annotationSuffix)
-        .onChange(async (value) => {
-          try {
-            const normalized = normalizeSuffix(value);
-            this.plugin.settings.annotationSuffix = normalized;
-            await this.plugin.saveSettings();
-            text.setValue(normalized);
-            await this.plugin.refreshView();
-          } catch (error) {
-            new Notice(error instanceof Error ? error.message : String(error));
-            text.setValue(this.plugin.settings.annotationSuffix);
-          }
-        }));
-
-    new Setting(this.containerEl)
-      .setName("自动保存延迟")
-      .setDesc("停止输入后等待多长时间写入批注文件。")
-      .addSlider((slider) => slider
-        .setLimits(150, 2000, 50)
-        .setValue(this.plugin.settings.autosaveDelay)
-        .onChange(async (value) => {
-          this.plugin.settings.autosaveDelay = value;
-          await this.plugin.saveSettings();
-        }));
-
-    new Setting(this.containerEl)
-      .setName("笔记重命名时同步批注文件")
-      .setDesc("保持 Markdown 笔记和对应批注文件的名称一致。")
-      .addToggle((toggle) => toggle
-        .setValue(this.plugin.settings.autoRenameCompanion)
-        .onChange(async (value) => {
-          this.plugin.settings.autoRenameCompanion = value;
-          await this.plugin.saveSettings();
-        }));
-
-    new Setting(this.containerEl)
-      .setName("删除笔记时移入批注文件")
-      .setDesc("删除 Markdown 笔记时，使用 Obsidian 当前的废纸篓策略处理对应批注文件。")
-      .addToggle((toggle) => toggle
-        .setValue(this.plugin.settings.autoTrashCompanion)
-        .onChange(async (value) => {
-          this.plugin.settings.autoTrashCompanion = value;
-          await this.plugin.saveSettings();
-        }));
-
-    new Setting(this.containerEl)
-      .setName("在正文中显示批注")
-      .setDesc("在编辑模式和阅读模式中，在批注位置下方显示只读批注内容。")
-      .addToggle((toggle) => toggle
-        .setValue(this.plugin.settings.showInlineAnnotations)
-        .onChange(async (value) => {
-          await this.plugin.setInlineAnnotationsVisible(value);
-        }));
-
+  getSettingDefinitions(): SettingDefinitionItem[] {
     const types = this.plugin.settings.annotationTypes;
-    types.forEach((type, index) => {
-      new Setting(this.containerEl)
-        .setName("")
-        .setClass("annotation-sidebar-type-setting")
-        .addText((text) => text.setValue(type.name).onChange(async (value) => {
-          const name = value.trim();
-          if (!name || types.some((item, i) => i !== index && item.name === name)) {
-            new Notice("类型名不能为空且不能重复");
-            text.setValue(type.name);
-            return;
-          }
-          const previous = type.name;
-          type.name = name;
-          await this.plugin.renameAnnotationType(previous, name);
-          await this.plugin.saveSettings();
-          this.display();
-        }))
-        .addColorPicker((picker) => picker.setValue(type.color).onChange(async (value) => {
-          type.color = value;
-          await this.plugin.saveSettings();
-          this.plugin.refreshInlineDisplays();
-        }))
-        .addButton((button) => {
-          button.setButtonText("");
-          button.setTooltip("选择图标");
-          button.buttonEl.classList.add("annotation-sidebar-icon-button");
-          setIcon(button.buttonEl, normalizeAnnotationIcon(type.icon));
-          button.onClick(() => new IconPickerModal(this.plugin, type, (icon) => {
-            setIcon(button.buttonEl, icon);
-          }).open());
-        })
-        .addButton((button) => button.setButtonText("删除").setWarning().onClick(async () => {
-          if (types.length === 1) {
-            new Notice("至少保留一种类型");
-            return;
-          }
-          const replacement = types.find((item, i) => i !== index)?.name;
-          if (replacement) await this.plugin.replaceAnnotationType(type.name, replacement);
-          types.splice(index, 1);
-          await this.plugin.saveSettings();
-          this.display();
-          this.plugin.refreshInlineDisplays();
-        }));
-    });
-    new Setting(this.containerEl).addButton((button) => button
-      .setButtonText("新增类型")
-      .onClick(async () => {
-        let name = "custom";
-        let suffix = 1;
-        while (types.some((item) => item.name === name)) name = `custom-${suffix++}`;
-        types.push({ name, color: "#888888", icon: "circle" });
+    return [
+      {
+        type: "group",
+        heading: "常规",
+        items: [
+          {
+            name: "批注文件后缀",
+            desc: "默认情况下，Note.md 的批注保存在 Note.annotations.json。修改后不会自动迁移已有文件。",
+            control: {
+              type: "text",
+              key: "annotationSuffix",
+              placeholder: DEFAULT_ANNOTATION_SUFFIX,
+              validate: (value: string) => {
+                try {
+                  normalizeSuffix(value);
+                } catch (error) {
+                  return error instanceof Error ? error.message : String(error);
+                }
+                return undefined;
+              },
+            },
+          },
+          {
+            name: "自动保存延迟",
+            desc: "停止输入后等待多长时间写入批注文件。",
+            control: {
+              type: "slider",
+              key: "autosaveDelay",
+              min: 150,
+              max: 2000,
+              step: 50,
+            },
+          },
+          {
+            name: "笔记重命名时同步批注文件",
+            desc: "保持 Markdown 笔记和对应批注文件的名称一致。",
+            control: { type: "toggle", key: "autoRenameCompanion" },
+          },
+          {
+            name: "删除笔记时移入批注文件",
+            desc: "删除 Markdown 笔记时，使用 Obsidian 当前的废纸篓策略处理对应批注文件。",
+            control: { type: "toggle", key: "autoTrashCompanion" },
+          },
+          {
+            name: "在正文中显示批注",
+            desc: "在编辑模式和阅读模式中，在批注位置下方显示只读批注内容。",
+            control: { type: "toggle", key: "showInlineAnnotations" },
+          },
+        ],
+      },
+      {
+        type: "list",
+        heading: "批注类型",
+        emptyState: "还没有批注类型。",
+        addItem: { name: "新增类型", action: () => void this.addType() },
+        onDelete: types.length > 1 ? (index: number) => void this.deleteType(index) : undefined,
+        items: types.map((type, index) => ({
+          type: "page" as const,
+          name: type.name,
+          items: [
+            {
+              name: "名称",
+              desc: "显示在批注侧栏、正文高亮和颜色选择器中的类型名称。",
+              control: {
+                type: "text",
+                key: `type:${index}:name`,
+                validate: (value: string) => {
+                  const name = value.trim();
+                  if (!name) return "类型名不能为空。";
+                  return types.some((item, other) => other !== index && item.name === name)
+                    ? "类型名不能重复。"
+                    : undefined;
+                },
+              },
+            },
+            {
+              name: "颜色",
+              desc: "正文高亮、位置标记、正文批注块和侧栏卡片使用的颜色。",
+              control: { type: "color", key: `type:${index}:color` },
+            },
+            {
+              name: "图标",
+              desc: "该类型在侧栏和正文中显示的图标。",
+              render: (setting) => {
+                setting.addButton((button) => {
+                  setIcon(button.buttonEl, normalizeAnnotationIcon(type.icon));
+                  button.setTooltip("选择图标");
+                  button.onClick(() => new IconPickerModal(
+                    this.plugin,
+                    type,
+                    (icon) => setIcon(button.buttonEl, icon),
+                  ).open());
+                });
+              },
+            },
+          ],
+        })),
+      },
+    ];
+  }
+
+  getControlValue(key: string): unknown {
+    const match = TYPE_CONTROL_KEY.exec(key);
+    if (match) {
+      const type = this.plugin.settings.annotationTypes[Number(match[1])];
+      if (!type) return undefined;
+      return match[2] === "name" ? type.name : type.color;
+    }
+    return super.getControlValue(key);
+  }
+
+  async setControlValue(key: string, value: unknown): Promise<void> {
+    const match = TYPE_CONTROL_KEY.exec(key);
+    if (match) {
+      await this.setTypeField(Number(match[1]), match[2] as "name" | "color", value);
+      return;
+    }
+
+    switch (key) {
+      case "annotationSuffix": {
+        this.plugin.settings.annotationSuffix = normalizeSuffix(String(value));
         await this.plugin.saveSettings();
-        this.display();
-      }));
+        await this.plugin.refreshView();
+        return;
+      }
+      case "showInlineAnnotations": {
+        await this.plugin.setInlineAnnotationsVisible(Boolean(value));
+        return;
+      }
+      case "autosaveDelay": {
+        this.plugin.settings.autosaveDelay = Number(value);
+        await this.plugin.saveSettings();
+        return;
+      }
+      case "autoRenameCompanion": {
+        this.plugin.settings.autoRenameCompanion = Boolean(value);
+        await this.plugin.saveSettings();
+        return;
+      }
+      case "autoTrashCompanion": {
+        this.plugin.settings.autoTrashCompanion = Boolean(value);
+        await this.plugin.saveSettings();
+        return;
+      }
+      default: {
+        await super.setControlValue(key, value);
+      }
+    }
+  }
+
+  private async addType(): Promise<void> {
+    const types = this.plugin.settings.annotationTypes;
+    let name = "custom";
+    let suffix = 1;
+    while (types.some((item) => item.name === name)) name = `custom-${suffix++}`;
+    types.push({ name, color: "#888888", icon: "circle" });
+    await this.plugin.saveSettings();
+    this.update();
+  }
+
+  private async deleteType(index: number): Promise<void> {
+    const types = this.plugin.settings.annotationTypes;
+    if (types.length <= 1) return;
+    const removed = types[index];
+    const replacement = types.find((_, other) => other !== index)?.name;
+    if (!removed || replacement === undefined) return;
+
+    await this.plugin.replaceAnnotationType(removed.name, replacement);
+    types.splice(index, 1);
+    await this.plugin.saveSettings();
+    this.plugin.refreshInlineDisplays();
+    this.update();
+  }
+
+  private async setTypeField(index: number, field: "name" | "color", value: unknown): Promise<void> {
+    const types = this.plugin.settings.annotationTypes;
+    const type = types[index];
+    if (!type) return;
+
+    if (field === "color") {
+      type.color = String(value);
+      await this.plugin.saveSettings();
+      this.plugin.refreshInlineDisplays();
+      return;
+    }
+
+    const name = String(value).trim();
+    if (!name || name === type.name) return;
+    if (types.some((item, other) => other !== index && item.name === name)) return;
+
+    const previous = type.name;
+    type.name = name;
+    await this.plugin.renameAnnotationType(previous, name);
+    await this.plugin.saveSettings();
+    this.update();
   }
 }
 
@@ -155,8 +243,8 @@ class IconPickerModal extends Modal {
   ) { super(plugin.app); }
 
   onOpen(): void {
-    this.titleEl.setText("选择 icon");
-    const search = this.contentEl.createEl("input", { type: "search", placeholder: "Search..." });
+    this.titleEl.setText("选择图标");
+    const search = this.contentEl.createEl("input", { type: "search", placeholder: "搜索图标…" });
     search.className = "annotation-sidebar-icon-search";
     const grid = this.contentEl.createDiv({ cls: "annotation-sidebar-icon-grid" });
     const render = (query = "") => {

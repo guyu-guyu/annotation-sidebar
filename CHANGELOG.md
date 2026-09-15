@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.0 - 2026-09-15
+
+- Move the settings tab to Obsidian's declarative settings API (`getSettingDefinitions()`), so every setting is indexed by Obsidian's settings search on 1.13.0 and later. `minAppVersion` is now 1.13.0.
+- Annotation types are now edited as a list: each type is an entry with its own name, color, and icon, with add and delete affordances provided by Obsidian.
+- Validate the annotation file suffix and the type name inline instead of rejecting changes silently.
+
 ## 0.5.1 - 2026-09-15
 
 - Declare the Obsidian APIs the plugin actually relies on, and raise `minAppVersion` to 1.7.2 to match (`revealLeaf`, `FileManager.trashFile`, `setTooltip`).
