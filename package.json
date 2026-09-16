@@ -1,6 +1,6 @@
 {
   "name": "obsidian-annotation-sidebar",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "Per-note annotations in an editable Obsidian sidebar.",
   "main": "dist/main.js",
   "type": "module",

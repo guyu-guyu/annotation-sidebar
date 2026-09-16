@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.1 - 2026-09-16
+
+- Fix adding an annotation at the cursor, and the sidebar, editor highlights, inline annotation blocks and reading-mode blocks, failing with "Only one element on document allowed". The 0.6.0 review cleanup called Obsidian's DOM helpers on `document`, where they append the element to the document node instead of returning a detached one; they are now called as the global helpers.
+- Drop the no-op `annotationColorClass()` helper. Colors already travel through the `--annotation-sidebar-color` custom property, so changing a type no longer rewrites an unchanged class list.
+
 ## 0.6.0 - 2026-09-15
 
 - Move the settings tab to Obsidian's declarative settings API (`getSettingDefinitions()`), so every setting is indexed by Obsidian's settings search on 1.13.0 and later. `minAppVersion` is now 1.13.0.
