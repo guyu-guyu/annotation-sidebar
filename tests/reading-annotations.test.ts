@@ -77,19 +77,25 @@ class FakeDocument {
   createElement(tagName: string): FakeElement {
     return new FakeElement(tagName, this);
   }
-
-  createEl(tagName: string): FakeElement {
-    return this.createElement(tagName);
-  }
-
-  createDiv(): FakeElement {
-    return this.createElement("div");
-  }
-
-  createSpan(): FakeElement {
-    return this.createElement("span");
-  }
 }
+
+/**
+ * Obsidian's `createEl`/`createDiv`/`createSpan` are global functions that
+ * return detached elements. The fake document deliberately keeps only
+ * `createElement`: the node-scoped `createX` methods append to their receiver,
+ * so `document.createDiv()` throws in Obsidian and must not silently work here.
+ */
+let currentDocument!: FakeDocument;
+
+function createFake(tagName: string): FakeElement {
+  return new FakeElement(tagName, currentDocument);
+}
+
+beforeEach(() => {
+  vi.stubGlobal("createEl", (tagName: string) => createFake(tagName));
+  vi.stubGlobal("createDiv", () => createFake("div"));
+  vi.stubGlobal("createSpan", () => createFake("span"));
+});
 
 interface FakeEvent {
   preventDefault(): void;
@@ -106,6 +112,7 @@ describe("ReadingAnnotationRenderer", () => {
 
   beforeEach(() => {
     document = new FakeDocument();
+    currentDocument = document;
     const TFileConstructor = RuntimeTFile as unknown as new (path: string) => TFile;
     source = new TFileConstructor("Note.md");
     openAnnotationInSidebar = vi.fn();

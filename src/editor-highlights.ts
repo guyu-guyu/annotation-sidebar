@@ -42,9 +42,12 @@ interface HighlightController {
 
 const controllers = new Set<HighlightController>();
 
-export function annotationColorClass(type: AnnotationType): string {
-  return "annotation-sidebar-type";
-}
+/**
+ * Styling hook shared by every annotation surface. Types and colors are
+ * configured at runtime, so the color travels through the
+ * `--annotation-sidebar-color` custom property instead of one class per type.
+ */
+export const ANNOTATION_TYPE_CLASS = "annotation-sidebar-type";
 
 export function annotationTypeStyle(plugin: AnnotationSidebarPlugin, type: AnnotationType): string {
   const color = annotationTypeColor(plugin, type);
@@ -198,7 +201,7 @@ function buildDecorations(
         }).range(anchor.from));
       } else {
         annotationDecorations.push(Decoration.mark({
-          class: `annotation-sidebar-highlight ${annotationColorClass(annotation.type)}`,
+          class: `annotation-sidebar-highlight ${ANNOTATION_TYPE_CLASS}`,
           attributes: {
             "data-annotation-id": annotation.id,
             title: "此处有批注",
@@ -264,8 +267,8 @@ class PositionAnnotationWidget extends WidgetType {
   }
 
   toDOM(): HTMLElement {
-    const marker = document.createSpan();
-    marker.className = `annotation-sidebar-position-marker ${annotationColorClass(this.type)}`;
+    const marker = createSpan();
+    marker.className = `annotation-sidebar-position-marker ${ANNOTATION_TYPE_CLASS}`;
     marker.setAttribute("style", `${this.style};background-color:var(--annotation-sidebar-color);`);
     setIcon(marker, this.icon);
     marker.dataset.annotationId = this.annotationId;
@@ -313,8 +316,8 @@ class AnnotationContentWidget extends WidgetType {
   }
 
   toDOM(): HTMLElement {
-    const wrapper = document.createDiv();
-    wrapper.className = `annotation-sidebar-inline-content ${annotationColorClass(this.type)}`;
+    const wrapper = createDiv();
+    wrapper.className = `annotation-sidebar-inline-content ${ANNOTATION_TYPE_CLASS}`;
     wrapper.setAttribute("style", this.style);
     wrapper.dataset.annotationId = this.annotationId;
     wrapper.tabIndex = 0;
@@ -322,13 +325,13 @@ class AnnotationContentWidget extends WidgetType {
     wrapper.setAttribute("aria-label", "打开此批注");
     wrapper.title = "点击在批注侧栏中打开";
 
-    const body = document.createDiv();
+    const body = createDiv();
     body.className = "annotation-sidebar-inline-content__body";
-    const icon = document.createSpan();
+    const icon = createSpan();
     icon.className = "annotation-sidebar-inline-content__icon";
     setIcon(icon, this.icon);
     body.appendChild(icon);
-    const text = document.createSpan();
+    const text = createSpan();
     text.textContent = this.content;
     body.appendChild(text);
     wrapper.appendChild(body);

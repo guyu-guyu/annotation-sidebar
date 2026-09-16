@@ -6,7 +6,7 @@ import {
   setTooltip,
 } from "obsidian";
 import { AnnotationFormatError } from "./core";
-import { annotationColorClass, annotationTypeColor, annotationTypeIcon, annotationTypeStyle } from "./editor-highlights";
+import { ANNOTATION_TYPE_CLASS, annotationTypeColor, annotationTypeIcon, annotationTypeStyle } from "./editor-highlights";
 import { resolveAnnotationsInDocumentOrder } from "./inline-display";
 import type AnnotationSidebarPlugin from "./main";
 import {
@@ -77,8 +77,6 @@ export class AnnotationView extends ItemView {
     const item = Array.from(items).find((element) => element.dataset.annotationId === annotationId);
     if (!item) return;
 
-    for (const value of this.plugin.settings.annotationTypes.map((item) => item.name)) item.classList.remove(annotationColorClass(value));
-    item.classList.add(annotationColorClass(type));
     item.setAttribute("style", annotationTypeStyle(this.plugin, type));
     const typeIcon = item.querySelector<HTMLElement>(".annotation-sidebar__type-icon");
     if (typeIcon) {
@@ -225,7 +223,7 @@ export class AnnotationView extends ItemView {
     content: string,
   ): void {
     const card = container.createDiv({
-      cls: `annotation-sidebar__item ${annotationColorClass(annotation.type)}`,
+      cls: `annotation-sidebar__item ${ANNOTATION_TYPE_CLASS}`,
       attr: { "data-annotation-id": annotation.id },
     });
     card.addEventListener("click", (event) => {
@@ -245,7 +243,7 @@ export class AnnotationView extends ItemView {
     });
     for (const { name: type } of this.plugin.settings.annotationTypes) {
       const option = colorPicker.createEl("button", {
-        cls: `annotation-sidebar__color-option ${annotationColorClass(type)}${type === annotation.type ? " is-selected" : ""}`,
+        cls: `annotation-sidebar__color-option ${ANNOTATION_TYPE_CLASS}${type === annotation.type ? " is-selected" : ""}`,
         attr: {
           type: "button",
           "data-annotation-type": type,
@@ -411,7 +409,7 @@ export class AnnotationView extends ItemView {
     onClick: () => void,
     extraClass?: string,
   ): HTMLButtonElement {
-    const button = document.createEl("button");
+    const button = createEl("button");
     button.className = `clickable-icon annotation-sidebar__icon-button${extraClass ? ` ${extraClass}` : ""}`;
     button.type = "button";
     button.setAttribute("aria-label", tooltip);

@@ -10,7 +10,7 @@ import {
   compareAnnotationsForDisplay,
   shouldDisplayAnnotationContent,
 } from "./inline-display";
-import { annotationColorClass, annotationTypeIcon, annotationTypeStyle } from "./editor-highlights";
+import { ANNOTATION_TYPE_CLASS, annotationTypeIcon, annotationTypeStyle } from "./editor-highlights";
 import type AnnotationSidebarPlugin from "./main";
 import type { AnnotationType, AnnotationDocument } from "./types";
 
@@ -51,7 +51,7 @@ export class ReadingAnnotationRenderer {
     if (annotations.length === 0) return;
     annotations.forEach((annotation) => rendered.add(annotation.id));
 
-    const container = element.ownerDocument.createDiv();
+    const container = createDiv();
     container.className = "annotation-sidebar-reading-content";
     container.dataset.annotationSource = context.sourcePath;
     for (const annotation of annotations) {
@@ -60,7 +60,6 @@ export class ReadingAnnotationRenderer {
         annotation.content,
         annotation.type,
         context.sourcePath,
-        element.ownerDocument,
       ));
     }
 
@@ -97,20 +96,19 @@ export class ReadingAnnotationRenderer {
     content: string,
     type: AnnotationType,
     sourcePath: string,
-    ownerDocument: Document,
   ): HTMLElement {
-    const button = ownerDocument.createEl("button");
+    const button = createEl("button");
     button.type = "button";
-    button.className = `annotation-sidebar-reading-content__item ${annotationColorClass(type)}`;
+    button.className = `annotation-sidebar-reading-content__item ${ANNOTATION_TYPE_CLASS}`;
     button.setAttribute("style", annotationTypeStyle(this.plugin, type));
     button.dataset.annotationId = annotationId;
     button.setAttribute("aria-label", "在批注侧栏中打开此批注");
     button.title = "点击在批注侧栏中打开";
-    const icon = ownerDocument.createSpan();
+    const icon = createSpan();
     icon.className = "annotation-sidebar-reading-content__icon";
     setIcon(icon, annotationTypeIcon(this.plugin, type));
     button.appendChild(icon);
-    const text = ownerDocument.createSpan();
+    const text = createSpan();
     text.textContent = content;
     button.appendChild(text);
     const open = (event: Event) => {
