@@ -1,0 +1,20 @@
+src/annotation-view.ts
+  h_d9088715075e51 9,226,246,412
+src/editor-highlights.ts
+  h_d9088715075e51 45-50,204,270-271,319-320,328,330,334
+src/reading-annotations.ts
+  h_d9088715075e51 13,54,100,102,107,111
+tests/reading-annotations.test.ts
+  h_d9088715075e51 80,82-88,90-91,94-99,115
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "21000bf74d6089f26740bc2bb7f37d7e9560e971",
+  "prompts": {},
+  "humans": {
+    "h_d9088715075e51": {
+      "author": "leijieliu <leijieliu@tencent.com>"
+    }
+  }
+}
